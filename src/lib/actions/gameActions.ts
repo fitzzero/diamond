@@ -6,8 +6,15 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { boardSetup } from '@/lib/game/boardSetup';
 import { diamondCoords } from '@/lib/game/coordinates';
-import type { Move, BoardState, PieceColor } from '@/types/game';
+import type {
+  BoardState,
+  Move,
+  PieceColor,
+  GameState,
+  GameStatus,
+} from '@/types/game';
 
+// Result types for server actions
 export interface CreateMatchResult {
   success: boolean;
   matchId?: string;
@@ -23,12 +30,19 @@ export interface JoinMatchResult {
 export interface MakeMoveResult {
   success: boolean;
   error?: string;
-  gameState?: {
-    board: string;
-    currentTurn: PieceColor;
-    status: string;
-    moveHistory: string;
-  };
+  gameState?: any;
+}
+
+export interface GameStateResult {
+  success: boolean;
+  gameState?: any; // Using any for now since our DB structure differs from GameState
+  error?: string;
+}
+
+export interface UserMatchesResult {
+  success: boolean;
+  matches?: any[];
+  error?: string;
 }
 
 /**
@@ -233,65 +247,84 @@ export async function makeMove(
 }
 
 /**
- * Get current game state
+ * Get current game state with all related data
  */
-export async function getGameState(gameId: string) {
-  try {
-    const game = await prisma.game.findUnique({
-      where: { id: gameId },
-      include: {
-        match: {
-          include: { player1: true, player2: true },
-        },
-      },
-    });
-
-    if (!game) {
-      return null;
-    }
-
-    return {
-      id: game.id,
-      matchId: game.matchId,
-      gameNumber: game.gameNumber,
-      status: game.status,
-      currentTurn: game.currentTurn as PieceColor,
-      board: game.board,
-      moveHistory: game.moveHistory,
-      createdAt: game.createdAt,
-      completedAt: game.completedAt,
-      match: {
-        id: game.match.id,
-        status: game.match.status,
-        player1: {
-          id: game.match.player1.id,
-          username: game.match.player1.username,
-          image: game.match.player1.image,
-        },
-        player2: game.match.player2
-          ? {
-              id: game.match.player2.id,
-              username: game.match.player2.username,
-              image: game.match.player2.image,
-            }
-          : null,
-      },
-    };
-  } catch (error) {
-    console.error('Error getting game state:', error);
-    return null;
-  }
-}
-
-/**
- * Get all matches for the current user
- */
-export async function getUserMatches() {
+export async function getGameState(gameId: string): Promise<GameStateResult> {
   try {
     const session = await auth();
 
     if (!session?.user?.id) {
-      return [];
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const game = await prisma.game.findUnique({
+      where: { id: gameId },
+      include: {
+        match: {
+          include: {
+            player1: true,
+            player2: true,
+          },
+        },
+        whitePlayer: true,
+        blackPlayer: true,
+      },
+      cacheStrategy: {
+        ttl: 5, // Cache for 5 seconds
+        swr: 10, // Serve stale for 10 seconds while revalidating
+      },
+    });
+
+    if (!game) {
+      return { success: false, error: 'Game not found' };
+    }
+
+    // Check if user is part of this game
+    const isPlayer =
+      game.whitePlayerId === session.user.id ||
+      game.blackPlayerId === session.user.id;
+
+    if (!isPlayer) {
+      return { success: false, error: 'Access denied' };
+    }
+
+    // Parse board state
+    const boardEntries = JSON.parse(game.board);
+    const board: BoardState = new Map(boardEntries);
+
+    const gameData = {
+      id: game.id,
+      gameNumber: game.gameNumber,
+      status: game.status,
+      currentTurn: game.currentTurn as PieceColor,
+      board: JSON.stringify(Array.from(board.entries())), // Keep as string for API
+      moveHistory: JSON.parse(game.moveHistory),
+      whitePlayerId: game.whitePlayerId,
+      blackPlayerId: game.blackPlayerId,
+      startedAt: game.startedAt,
+      completedAt: game.completedAt,
+      result: game.result,
+      match: game.match,
+      whitePlayer: game.whitePlayer,
+      blackPlayer: game.blackPlayer,
+    };
+
+    return { success: true, gameState: gameData };
+  } catch (error) {
+    console.error('Error getting game state:', error);
+    return { success: false, error: 'Failed to get game state' };
+  }
+}
+
+/**
+ * Get user's matches with recent activity
+ */
+export async function getUserMatches(): Promise<UserMatchesResult> {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      return { success: false, error: 'Not authenticated' };
     }
 
     const matches = await prisma.match.findMany({
@@ -303,42 +336,19 @@ export async function getUserMatches() {
         player2: true,
         games: {
           orderBy: { gameNumber: 'desc' },
-          take: 1, // Get the most recent game
+          take: 1, // Get most recent game
         },
       },
       orderBy: { updatedAt: 'desc' },
+      cacheStrategy: {
+        ttl: 10, // Cache user matches for 10 seconds
+        swr: 30, // Serve stale for 30 seconds
+      },
     });
 
-    const mappedMatches = matches.map((match: any) => ({
-      id: match.id,
-      status: match.status,
-      createdAt: match.createdAt,
-      updatedAt: match.updatedAt,
-      player1: {
-        id: match.player1.id,
-        username: match.player1.username,
-        image: match.player1.image,
-      },
-      player2: match.player2
-        ? {
-            id: match.player2.id,
-            username: match.player2.username,
-            image: match.player2.image,
-          }
-        : null,
-      currentGame:
-        match.games && match.games.length > 0
-          ? {
-              id: match.games[0].id,
-              status: match.games[0].status,
-              currentTurn: match.games[0].currentTurn,
-            }
-          : null,
-    }));
-
-    return mappedMatches;
+    return { success: true, matches };
   } catch (error) {
     console.error('Error getting user matches:', error);
-    return [];
+    return { success: false, error: 'Failed to get matches' };
   }
 }

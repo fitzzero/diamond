@@ -165,13 +165,14 @@ export function useCurrentUser() {
 }
 
 /**
- * Hook for real-time game updates (can be enhanced with Prisma Accelerate)
+ * Hook for real-time game updates (can be enhanced with Prisma Pulse)
  */
 export function useRealtimeGame(gameId: string | null) {
   const { game, isLoading, error, makeMove, refresh } = useGame(gameId);
 
-  // TODO: Enhance with Prisma Accelerate subscriptions
-  // For now, we're using polling, but this can be upgraded to WebSocket subscriptions
+  // NOTE: True real-time subscriptions require Prisma Pulse (separate product)
+  // Prisma Accelerate (which we have) provides connection pooling and caching
+  // For now, we use optimized polling with Accelerate caching for better performance
 
   return {
     game,
@@ -179,6 +180,7 @@ export function useRealtimeGame(gameId: string | null) {
     error,
     makeMove,
     refresh,
-    // Future: connection status, reconnect functionality, etc.
+    // Future: Prisma Pulse WebSocket subscriptions
+    connectionStatus: 'polling' as const, // vs 'connected', 'disconnected'
   };
 }
