@@ -55,8 +55,8 @@ export function testDiamondSystem(): void {
   }
 
   // Verify king positions
-  const whiteKing = boardSetup.findKing(initialBoard, 'white');
-  const blackKing = boardSetup.findKing(initialBoard, 'black');
+  const whiteKing = boardSetup.findKing(initialBoard, 'WHITE');
+  const blackKing = boardSetup.findKing(initialBoard, 'BLACK');
 
   if (whiteKing && blackKing) {
     const whiteKingAlgebraic = diamondCoords.toAlgebraic(whiteKing);

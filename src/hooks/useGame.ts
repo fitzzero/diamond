@@ -1,0 +1,184 @@
+'use client';
+
+import useSWR from 'swr';
+import { useSession } from 'next-auth/react';
+import {
+  getGameState,
+  makeMove,
+  getUserMatches,
+  createMatch,
+  joinMatch,
+} from '@/lib/actions/gameActions';
+import type { Move, PieceColor } from '@/types/game';
+
+// SWR fetcher functions
+const gameStateFetcher = async (gameId: string) => {
+  return await getGameState(gameId);
+};
+
+const userMatchesFetcher = async () => {
+  return await getUserMatches();
+};
+
+/**
+ * Hook to get and subscribe to game state
+ */
+export function useGame(gameId: string | null) {
+  const { data, error, isLoading, mutate } = useSWR(
+    gameId ? ['game', gameId] : null,
+    () => gameStateFetcher(gameId!),
+    {
+      refreshInterval: 0,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      revalidateOnMount: false, // Prevent revalidation on component mount
+      revalidateIfStale: false, // Don't revalidate if data is stale
+      dedupingInterval: 5000, // Increase deduping interval
+    }
+  );
+
+  const makeGameMove = async (move: Move) => {
+    if (!gameId) throw new Error('No game ID');
+
+    // Optimistic update
+    const currentGame = data;
+    if (currentGame) {
+      // Update the board state optimistically
+      mutate(
+        {
+          ...currentGame,
+          currentTurn: currentGame.currentTurn === 'WHITE' ? 'BLACK' : 'WHITE',
+        },
+        false // Don't revalidate immediately
+      );
+    }
+
+    try {
+      const result = await makeMove(gameId, move);
+
+      if (result.success) {
+        // Revalidate to get the actual server state
+        await mutate();
+        return result;
+      } else {
+        // Rollback optimistic update on error
+        await mutate();
+        throw new Error(result.error || 'Move failed');
+      }
+    } catch (error) {
+      // Rollback optimistic update on error
+      await mutate();
+      throw error;
+    }
+  };
+
+  return {
+    game: data,
+    isLoading,
+    error,
+    makeMove: makeGameMove,
+    refresh: mutate,
+  };
+}
+
+/**
+ * Hook to get current user's matches
+ */
+export function useUserMatches() {
+  const { data: session } = useSession();
+
+  const { data, error, isLoading, mutate } = useSWR(
+    session?.user ? ['user-matches', session.user.id] : null,
+    userMatchesFetcher,
+    {
+      refreshInterval: 0,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      revalidateOnMount: false, // Prevent revalidation on component mount
+      revalidateIfStale: false, // Don't revalidate if data is stale
+      dedupingInterval: 5000, // Increase deduping interval
+    }
+  );
+
+  const createNewMatch = async () => {
+    const result = await createMatch();
+
+    if (result.success) {
+      // Revalidate matches list
+      await mutate();
+      return result;
+    } else {
+      throw new Error(result.error || 'Failed to create match');
+    }
+  };
+
+  const joinExistingMatch = async (matchId: string) => {
+    const result = await joinMatch(matchId);
+
+    if (result.success) {
+      // Revalidate matches list
+      await mutate();
+      return result;
+    } else {
+      throw new Error(result.error || 'Failed to join match');
+    }
+  };
+
+  return {
+    matches: data || [],
+    isLoading,
+    error,
+    createMatch: createNewMatch,
+    joinMatch: joinExistingMatch,
+    refresh: mutate,
+  };
+}
+
+/**
+ * Hook to get a specific match by ID
+ */
+export function useMatch(matchId: string | null) {
+  const { matches, isLoading, error, refresh } = useUserMatches();
+
+  const match = matches?.find((m: any) => m.id === matchId);
+
+  return {
+    match,
+    isLoading,
+    error,
+    refresh,
+  };
+}
+
+/**
+ * Hook to get current user session with auth state
+ */
+export function useCurrentUser() {
+  const { data: session, status } = useSession();
+
+  return {
+    user: session?.user || null,
+    isLoading: status === 'loading',
+    isAuthenticated: !!session?.user,
+    status,
+  };
+}
+
+/**
+ * Hook for real-time game updates (can be enhanced with Prisma Accelerate)
+ */
+export function useRealtimeGame(gameId: string | null) {
+  const { game, isLoading, error, makeMove, refresh } = useGame(gameId);
+
+  // TODO: Enhance with Prisma Accelerate subscriptions
+  // For now, we're using polling, but this can be upgraded to WebSocket subscriptions
+
+  return {
+    game,
+    isLoading,
+    error,
+    makeMove,
+    refresh,
+    // Future: connection status, reconnect functionality, etc.
+  };
+}

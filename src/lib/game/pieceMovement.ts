@@ -63,7 +63,7 @@ export class PieceMovement {
   ): DiamondPosition[] {
     const moves: DiamondPosition[] = [];
     const { x, y } = position;
-    const isWhite = piece.color === 'white';
+    const isWhite = piece.color === 'WHITE';
 
     if (options.capturesOnly) {
       // Only capture moves - different from movement direction!

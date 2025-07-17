@@ -1,6 +1,6 @@
 // Core game types for Diamond Chess
 
-export type PieceColor = 'white' | 'black';
+export type PieceColor = 'WHITE' | 'BLACK';
 export type PieceType =
   | 'king'
   | 'queen'

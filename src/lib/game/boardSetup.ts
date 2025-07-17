@@ -21,10 +21,10 @@ export class BoardSetup {
     const board: BoardState = new Map();
 
     // Setup white pieces (bottom of standard board)
-    this.setupPieces(board, 'white');
+    this.setupPieces(board, 'WHITE');
 
     // Setup black pieces (top of standard board)
-    this.setupPieces(board, 'black');
+    this.setupPieces(board, 'BLACK');
 
     return board;
   }
@@ -33,7 +33,7 @@ export class BoardSetup {
    * Setup pieces for one color
    */
   private setupPieces(board: BoardState, color: PieceColor): void {
-    const isWhite = color === 'white';
+    const isWhite = color === 'WHITE';
 
     // Piece arrangement on back rank
     const backRankPieces: PieceType[] = [
@@ -206,7 +206,7 @@ export class BoardSetup {
           if (!piece) return '.';
 
           const symbol = this.pieceToSymbol(piece);
-          return piece.color === 'white'
+          return piece.color === 'WHITE'
             ? symbol.toUpperCase()
             : symbol.toLowerCase();
         })
