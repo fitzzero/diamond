@@ -1,6 +1,25 @@
 {
   "name": "diamond",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Diamond Chess - A rotated chess game.",
   "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "type-check": "tsc --noEmit",
+    "setup": "cp environment.example .env && echo '✅ .env file created! Please fill in your values.'",
+    "setup:env": "cp environment.example .env",
+    "generate-secret": "node -e \"console.log('NEXTAUTH_SECRET=' + require('crypto').randomBytes(32).toString('base64'))\"",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:reset": "prisma migrate reset",
+    "db:studio": "prisma studio",
+    "db:setup": "yarn db:generate && yarn db:push && echo '✅ Database setup complete!'",
+    "dev:setup": "yarn setup && yarn db:setup && yarn dev",
     "playwright:start": "npx @playwright/mcp@latest --config playwright-mcp-headed.config.json --port 8931",
     "playwright:stop": "pkill -f '@playwright/mcp'",
     "playwright:restart": "yarn playwright:stop && sleep 2 && yarn playwright:start",
@@ -8,5 +27,35 @@
     "playwright:install": "npx playwright install",
     "playwright:install:deps": "npx playwright install-deps"
   },
-  "packageManager": "yarn@4.9.1"
+  "packageManager": "yarn@4.9.1",
+  "dependencies": {
+    "@auth/prisma-adapter": "^2.10.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@fontsource/roboto": "^5.2.6",
+    "@mui/icons-material": "^7.2.0",
+    "@mui/material": "^7.2.0",
+    "@mui/material-nextjs": "^7.2.0",
+    "@prisma/client": "6.12.0",
+    "@prisma/extension-accelerate": "^2.0.2",
+    "next": "^15.4.1",
+    "next-auth": "^5.0.0-beta.29",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "swr": "^2.3.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.14",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@typescript-eslint/eslint-plugin": "^8.37.0",
+    "@typescript-eslint/parser": "^8.37.0",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9.31.0",
+    "eslint-config-next": "^15.4.1",
+    "postcss": "^8.5.6",
+    "prettier": "^3.6.2",
+    "prisma": "6.12.0",
+    "typescript": "^5.8.3"
+  }
 }
