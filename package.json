@@ -1,0 +1,12 @@
+{
+  "name": "diamond",
+  "scripts": {
+    "playwright:start": "npx @playwright/mcp@latest --config playwright-mcp-headed.config.json --port 8931",
+    "playwright:stop": "pkill -f '@playwright/mcp'",
+    "playwright:restart": "yarn playwright:stop && sleep 2 && yarn playwright:start",
+    "playwright:status": "ps aux | grep playwright | grep -v grep || echo 'Playwright MCP server not running'",
+    "playwright:install": "npx playwright install",
+    "playwright:install:deps": "npx playwright install-deps"
+  },
+  "packageManager": "yarn@4.9.1"
+}
