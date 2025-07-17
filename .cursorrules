@@ -1,0 +1,173 @@
+# Diamond Chess Project - Cursor Rules
+
+## Project Architecture
+
+This is a Diamond Chess project built with Next.js 14 App Router, Material-UI v5, Prisma ORM, and NextAuth.js v5.
+
+## Component Guidelines
+
+### Size & Structure
+
+- Keep components under 400 lines of code - abstract into sub-components when approaching this limit
+- Break complex components into logical sub-components with clear responsibilities
+- Use meaningful component names that describe their purpose (e.g., `GameBoard`, `PieceSelector`, `MoveHistory`)
+
+### Material-UI Best Practices
+
+- Always use Material-UI components when available instead of custom HTML elements
+- Leverage MUI's sx prop for component-specific styling
+- Use MUI's breakpoint system for responsive design
+- Follow MUI's composition patterns and API design principles
+- Prefer MUI's built-in variants and color schemes
+
+## Styling & Theming
+
+### Global Styles
+
+- Abstract reusable styles, animations, and design tokens to the MUI theme (`src/lib/theme.ts`)
+- Use theme.palette for consistent colors across the chess-inspired design
+- Define common spacing, typography, and component variants in the theme
+- Create custom MUI theme variants for chess-specific UI elements (board, pieces, etc.)
+
+### Component Styling
+
+- Use MUI's sx prop for component-specific styles
+- Leverage theme values: `theme.spacing()`, `theme.palette.*`, `theme.breakpoints.*`
+- Avoid inline styles - prefer sx prop or styled components for complex styling
+
+## State Management & Data Fetching
+
+### SWR Integration
+
+- Use useSWR for all hooks that fetch server data
+- Create custom hooks that wrap useSWR for type safety and reusability:
+  - `useCurrentUser()` - current authenticated user
+  - `useUser(id)` - specific user data
+  - `useMatch(id)` - match data with real-time updates
+  - `useGame(id)` - game state and moves
+- Configure SWR with proper error handling and loading states
+- Implement proper cache invalidation strategies for game moves
+
+### Server Actions
+
+- Use Next.js Server Actions instead of API routes where possible
+- Mark server functions with 'use server' directive
+- Implement proper error handling and validation in server actions
+- Use Prisma's type helpers for consistent data schemas
+
+## Database & Prisma
+
+### Type Safety
+
+- Always use Prisma-generated types for consistency
+- Leverage Prisma's select and include for efficient queries
+- Use Prisma's transaction API for complex operations (e.g., game moves)
+- Implement proper error handling for Prisma operations
+
+### Performance
+
+- Use select and include judiciously to avoid over-fetching
+- Implement pagination with take and skip for large datasets
+- Be mindful of N+1 query problems
+
+## Authentication & Security
+
+### NextAuth.js v5
+
+- Follow NextAuth.js v5 patterns (handlers, not pages)
+- Use the auth() helper for protected routes
+- Implement proper session management and user context
+
+### Data Validation
+
+- Validate all user inputs before database operations
+- Use Zod or similar for runtime type validation
+- Never expose raw Prisma client in client components
+
+## Game Logic
+
+### Move Validation
+
+- Always validate moves server-side for security
+- Implement proper turn management and game state validation
+- Store board state as JSON with proper serialization/deserialization
+- Use optimistic updates for better UX while maintaining server authority
+
+### Real-time Updates
+
+- Leverage SWR's revalidation for pseudo-real-time updates
+- Plan for Prisma Accelerate integration for true real-time features
+- Handle connection states and offline scenarios gracefully
+
+## File Organization
+
+### Structure
+
+- Keep game logic in `src/lib/game/`
+- Place reusable hooks in `src/hooks/`
+- Store types in `src/types/`
+- Use barrel exports (index.ts) for clean imports
+
+### Naming Conventions
+
+- Use PascalCase for component files and React components
+- Use camelCase for hooks, utilities, and variables
+- Use descriptive names that reflect the chess/game domain
+
+## Code Quality
+
+### React Best Practices
+
+- Follow React Rules: components and hooks must be pure
+- Use proper dependency arrays in useEffect and useMemo
+- Implement proper error boundaries for game state errors
+- Use React.memo() for expensive components that re-render frequently
+
+### TypeScript
+
+- Enable strict mode and maintain 100% type coverage
+- Use discriminated unions for game states (pending, in-progress, completed)
+- Create proper interfaces for game moves, board state, and user actions
+- Avoid `any` type - use proper type assertions or unknown
+
+### Performance
+
+- Implement code splitting for large components
+- Use dynamic imports for heavy dependencies
+- Optimize re-renders with proper memoization
+- Consider virtualization for large game history lists
+
+## Testing Considerations
+
+### Unit Testing
+
+- Test game logic functions in isolation
+- Mock Prisma client for database-dependent tests
+- Test component rendering with proper props and state
+
+### Integration Testing
+
+- Test complete game flows (create match → join → make moves → conclude)
+- Verify server actions work correctly with database
+- Test authentication flows and protected routes
+
+## Development Workflow
+
+- Use feature branches and descriptive commit messages
+- Run Prisma generate after schema changes
+- Keep database migrations small and focused
+- Test locally before deployment
+
+## Specific to Diamond Chess
+
+### Board Orientation
+
+- Remember the 45° rotation affects coordinate systems
+- Implement proper pawn movement rules (NW/NE for white, SW/SE for black)
+- Handle the diamond-shaped board layout in UI components
+
+### Game State
+
+- Track turn alternation carefully
+- Implement proper check/checkmate detection for diamond orientation
+- Store move history with proper notation for the rotated board
