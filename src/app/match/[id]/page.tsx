@@ -26,7 +26,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useMatch, useGame } from '@/hooks/useGame';
 import { MainLayout } from '@/components/layout';
-import { DiamondBoard } from '@/components/game';
+import { DiamondBoard, MoveHistory, GameStatus } from '@/components/game';
 import { joinMatch, makeMove } from '@/lib/actions/gameActions';
 import type { DiamondPosition, PieceColor, Move } from '@/types/game';
 import { diamondCoords } from '@/lib/game/coordinates';
@@ -274,160 +274,105 @@ export default function MatchPage() {
           }}
         >
           {/* Game Board Section */}
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Game Board
-            </Typography>
+          <Stack spacing={3}>
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Game Board
+              </Typography>
 
-            {match.status === 'WAITING_FOR_PLAYER' && canJoin && (
-              <Box sx={{ textAlign: 'center', mb: 4 }}>
-                <Typography variant="body1" sx={{ mb: 2 }}>
-                  This match is waiting for a second player.
-                </Typography>
-                <Button
-                  variant="contained"
-                  startIcon={<PlayArrow />}
-                  onClick={handleJoinMatch}
-                  disabled={joinLoading}
-                  size="large"
-                >
-                  {joinLoading ? 'Joining...' : 'Join Match'}
-                </Button>
-              </Box>
-            )}
+              {match.status === 'WAITING_FOR_PLAYER' && canJoin && (
+                <Box sx={{ textAlign: 'center', mb: 4 }}>
+                  <Typography variant="body1" sx={{ mb: 2 }}>
+                    This match is waiting for a second player.
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<PlayArrow />}
+                    onClick={handleJoinMatch}
+                    disabled={joinLoading}
+                    size="large"
+                  >
+                    {joinLoading ? 'Joining...' : 'Join Match'}
+                  </Button>
+                </Box>
+              )}
 
-            {match.status === 'WAITING_FOR_PLAYER' &&
-              !canJoin &&
-              !isParticipant && (
+              {match.status === 'WAITING_FOR_PLAYER' &&
+                !canJoin &&
+                !isParticipant && (
+                  <Alert severity="info" sx={{ mb: 3 }}>
+                    This match is waiting for a second player, but you cannot
+                    join.
+                  </Alert>
+                )}
+
+              {match.status === 'WAITING_FOR_PLAYER' && isPlayer1 && (
                 <Alert severity="info" sx={{ mb: 3 }}>
-                  This match is waiting for a second player, but you cannot
-                  join.
+                  Waiting for another player to join. Share the match link to
+                  invite someone!
                 </Alert>
               )}
 
-            {match.status === 'WAITING_FOR_PLAYER' && isPlayer1 && (
-              <Alert severity="info" sx={{ mb: 3 }}>
-                Waiting for another player to join. Share the match link to
-                invite someone!
-              </Alert>
-            )}
+              {/* Game Board */}
+              {game?.boardState ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                  <DiamondBoard
+                    boardState={game.boardState}
+                    currentTurn={game.currentTurn}
+                    onSquareClick={handleSquareClick}
+                    onPieceMove={handlePieceMove}
+                    selectedSquare={selectedSquare}
+                    validMoves={validMoves}
+                    readOnly={
+                      !isParticipant ||
+                      match.status !== 'IN_PROGRESS' ||
+                      moveLoading
+                    }
+                  />
+                  {moveLoading && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        zIndex: 10,
+                      }}
+                    >
+                      <CircularProgress size={40} />
+                    </Box>
+                  )}
+                </Box>
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 8 }}>
+                  <Typography color="text.secondary">
+                    {match.status === 'WAITING_FOR_PLAYER'
+                      ? 'Game will start once both players have joined'
+                      : 'Loading game board...'}
+                  </Typography>
+                </Box>
+              )}
+            </Paper>
 
-            {/* Game Board */}
-            {game?.boardState ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                <DiamondBoard
-                  boardState={game.boardState}
-                  currentTurn={game.currentTurn}
-                  onSquareClick={handleSquareClick}
-                  onPieceMove={handlePieceMove}
-                  selectedSquare={selectedSquare}
-                  validMoves={validMoves}
-                  readOnly={
-                    !isParticipant ||
-                    match.status !== 'IN_PROGRESS' ||
-                    moveLoading
-                  }
-                />
-                {moveLoading && (
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      zIndex: 10,
-                    }}
-                  >
-                    <CircularProgress size={40} />
-                  </Box>
-                )}
-              </Box>
-            ) : (
-              <Box sx={{ textAlign: 'center', py: 8 }}>
-                <Typography color="text.secondary">
-                  {match.status === 'WAITING_FOR_PLAYER'
-                    ? 'Game will start once both players have joined'
-                    : 'Loading game board...'}
-                </Typography>
-              </Box>
+            {/* Game Status Section */}
+            {game && (
+              <GameStatus
+                currentTurn={game.currentTurn}
+                gameStatus={game.status}
+                moves={game.moveHistory || []}
+                whitePlayer={match.player1}
+                blackPlayer={match.player2}
+                currentUserId={user?.id}
+                matchStatus={match.status}
+              />
             )}
-          </Paper>
+          </Stack>
 
           {/* Match Info Sidebar */}
           <Stack spacing={3}>
-            {/* Players Card */}
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Players
-                </Typography>
-                <Stack spacing={2}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Person sx={{ color: 'text.secondary' }} />
-                    <Box>
-                      <Box
-                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-                      >
-                        <Typography variant="body1" component="span">
-                          {match.player1?.name || 'Player 1'}
-                        </Typography>
-                        {isPlayer1 && <Chip label="You" size="small" />}
-                      </Box>
-                      <Typography variant="caption" color="text.secondary">
-                        White pieces
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  <Divider />
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Person sx={{ color: 'text.secondary' }} />
-                    <Box>
-                      <Box
-                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-                      >
-                        <Typography variant="body1" component="span">
-                          {match.player2?.name || 'Waiting for player...'}
-                        </Typography>
-                        {isPlayer2 && <Chip label="You" size="small" />}
-                      </Box>
-                      <Typography variant="caption" color="text.secondary">
-                        Black pieces
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Stack>
-              </CardContent>
-            </Card>
-
-            {/* Game Status Card */}
+            {/* Move History */}
             {game && (
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Game Status
-                  </Typography>
-                  <Stack spacing={1}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="body2" component="span">
-                        <strong>Turn:</strong>{' '}
-                        {game.currentTurn === 'WHITE' ? 'White' : 'Black'}
-                      </Typography>
-                      {((game.currentTurn === 'WHITE' && isPlayer1) ||
-                        (game.currentTurn === 'BLACK' && isPlayer2)) && (
-                        <Chip label="Your turn" size="small" />
-                      )}
-                    </Box>
-                    <Typography variant="body2">
-                      <strong>Status:</strong> {game.status.replace('_', ' ')}
-                    </Typography>
-                    <Typography variant="body2">
-                      <strong>Game #:</strong> {game.gameNumber}
-                    </Typography>
-                  </Stack>
-                </CardContent>
-              </Card>
+              <MoveHistory moves={game.moveHistory || []} compact={true} />
             )}
 
             {/* Match Actions */}
