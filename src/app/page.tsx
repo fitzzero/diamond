@@ -11,6 +11,7 @@ import {
   CardActions,
   Chip,
   Alert,
+  Snackbar,
 } from '@mui/material';
 import {
   DiamondOutlined,
@@ -22,14 +23,25 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useUserMatches } from '@/hooks/useGame';
 import { MainLayout } from '@/components/layout';
+import { createMatch } from '@/lib/actions/gameActions';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 export default function HomePage() {
   const { user, isAuthenticated, isLoading, signIn } = useAuth();
-  const { matches: userMatchesResult, isLoading: matchesLoading } =
-    useUserMatches();
+  const {
+    matches: userMatchesResult,
+    isLoading: matchesLoading,
+    refresh,
+  } = useUserMatches();
   const router = useRouter();
+
+  const [createMatchLoading, setCreateMatchLoading] = useState(false);
+  const [notification, setNotification] = useState<{
+    message: string;
+    severity: 'success' | 'error';
+  } | null>(null);
 
   // Extract matches array from the result (with type safety)
   const userMatches = (userMatchesResult as any)?.success
@@ -40,9 +52,37 @@ export default function HomePage() {
     signIn('discord');
   };
 
-  const handleCreateMatch = () => {
-    // TODO: Implement create match logic
-    console.log('Create match clicked');
+  const handleCreateMatch = async () => {
+    if (createMatchLoading) return;
+
+    setCreateMatchLoading(true);
+    try {
+      const result = await createMatch();
+
+      if (result.success && result.matchId) {
+        setNotification({
+          message: 'Match created successfully!',
+          severity: 'success',
+        });
+        // Refresh the matches list
+        refresh();
+        // Navigate to the new match
+        router.push(`/match/${result.matchId}`);
+      } else {
+        setNotification({
+          message: result.error || 'Failed to create match',
+          severity: 'error',
+        });
+      }
+    } catch (error) {
+      console.error('Error creating match:', error);
+      setNotification({
+        message: 'An error occurred while creating the match',
+        severity: 'error',
+      });
+    } finally {
+      setCreateMatchLoading(false);
+    }
   };
 
   if (!isAuthenticated) {
@@ -149,6 +189,24 @@ export default function HomePage() {
             </Box>
           </Box>
         </Container>
+
+        {/* Notification Snackbar */}
+        {notification && (
+          <Snackbar
+            open={true}
+            autoHideDuration={6000}
+            onClose={() => setNotification(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          >
+            <Alert
+              onClose={() => setNotification(null)}
+              severity={notification.severity}
+              sx={{ width: '100%' }}
+            >
+              {notification.message}
+            </Alert>
+          </Snackbar>
+        )}
       </MainLayout>
     );
   }
@@ -178,6 +236,7 @@ export default function HomePage() {
               size="large"
               startIcon={<Add />}
               onClick={handleCreateMatch}
+              disabled={createMatchLoading}
               sx={{
                 px: 4,
                 py: 1.5,
@@ -187,9 +246,13 @@ export default function HomePage() {
                 '&:hover': {
                   background: 'linear-gradient(45deg, #fffef7, #deb887)',
                 },
+                '&:disabled': {
+                  background: 'rgba(245, 245, 220, 0.5)',
+                  color: 'rgba(26, 26, 26, 0.5)',
+                },
               }}
             >
-              Create New Match
+              {createMatchLoading ? 'Creating...' : 'Create New Match'}
             </Button>
             <Button
               component={Link}
