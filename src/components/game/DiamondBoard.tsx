@@ -7,22 +7,24 @@ import { CHESS_ICONS } from '@/lib/fontawesome';
 import { useBreakpoints } from '@/hooks';
 import type {
   BoardState,
+  ChessPosition,
   DiamondPosition,
   Piece,
   PieceColor,
 } from '@/types/game';
-import { diamondCoords } from '@/lib/game/coordinates';
-import { pieceMovement } from '@/lib/game/pieceMovement';
+import { chessCoords } from '@/lib/game/coordinates';
 import PlayerCard from './PlayerCard';
+import { moveValidator } from '@/lib/game/moveValidation';
+import type { Move } from '@/types/game';
 
 interface DiamondBoardProps {
   boardState: BoardState;
   currentTurn: PieceColor;
-  onSquareClick?: (position: DiamondPosition) => void;
-  onPieceMove?: (from: DiamondPosition, to: DiamondPosition) => void;
-  highlightedSquares?: DiamondPosition[];
-  selectedSquare?: DiamondPosition | null;
-  validMoves?: DiamondPosition[];
+  onSquareClick?: (position: ChessPosition) => void;
+  onPieceMove?: (from: ChessPosition, to: ChessPosition) => void;
+  highlightedSquares?: ChessPosition[];
+  selectedSquare?: ChessPosition | null;
+  validMoves?: ChessPosition[];
   readOnly?: boolean;
   // Player data for the cards
   player1?: {
@@ -40,7 +42,8 @@ interface DiamondBoardProps {
 }
 
 interface SquareProps {
-  position: DiamondPosition;
+  chessPosition: ChessPosition;
+  diamondPosition: DiamondPosition;
   piece?: Piece;
   isLight: boolean;
   isSelected: boolean;
@@ -48,10 +51,10 @@ interface SquareProps {
   isHighlighted: boolean;
   isDragOver: boolean;
   onClick: () => void;
-  onDragStart: (position: DiamondPosition) => void;
+  onDragStart: (chessPos: ChessPosition) => void;
   onDragEnd: () => void;
-  onDragOver: (position: DiamondPosition) => void;
-  onDrop: (position: DiamondPosition) => void;
+  onDragOver: (chessPos: ChessPosition) => void;
+  onDrop: (chessPos: ChessPosition) => void;
   size: number;
   left: number;
   top: number;
@@ -61,7 +64,8 @@ interface SquareProps {
 }
 
 function ChessSquare({
-  position,
+  chessPosition,
+  diamondPosition,
   piece,
   isLight,
   isSelected,
@@ -98,8 +102,11 @@ function ChessSquare({
       return;
     }
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', diamondCoords.positionToKey(position));
-    onDragStart(position);
+    e.dataTransfer.setData(
+      'text/plain',
+      chessCoords.positionToKey(chessPosition)
+    );
+    onDragStart(chessPosition);
   };
 
   const handleDragEnd = () => {
@@ -110,13 +117,13 @@ function ChessSquare({
     if (isValidMove) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-      onDragOver(position);
+      onDragOver(chessPosition);
     }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    onDrop(position);
+    onDrop(chessPosition);
   };
 
   return (
@@ -204,19 +211,41 @@ export default function DiamondBoard({
 }: DiamondBoardProps) {
   const { isMobile } = useBreakpoints();
 
+  // Coordinate conversion helpers
+  const chessToDisplay = useCallback(
+    (chess: ChessPosition): DiamondPosition => {
+      const display = chessCoords.chessToDisplayDiamond(chess);
+      return { x: display.x, y: display.y };
+    },
+    []
+  );
+
+  const displayToChess = useCallback(
+    (diamond: DiamondPosition): ChessPosition | null => {
+      return chessCoords.displayDiamondToChess({ x: diamond.x, y: diamond.y });
+    },
+    []
+  );
+
   // Drag state management
   const [draggedPiece, setDraggedPiece] = useState<{
     piece: Piece;
-    from: DiamondPosition;
+    from: ChessPosition;
   } | null>(null);
   const [dragOverPosition, setDragOverPosition] =
-    useState<DiamondPosition | null>(null);
+    useState<ChessPosition | null>(null);
   const [localValidMoves, setLocalValidMoves] =
-    useState<DiamondPosition[]>(validMoves);
+    useState<ChessPosition[]>(validMoves);
 
-  // Get all valid positions for the diamond board
-  const allPositions = useMemo(() => {
-    return diamondCoords.getAllValidPositions();
+  // Generate all valid chess positions for rendering
+  const allChessPositions = useMemo(() => {
+    const positions: ChessPosition[] = [];
+    for (let file = 0; file < 8; file++) {
+      for (let rank = 0; rank < 8; rank++) {
+        positions.push({ file, rank });
+      }
+    }
+    return positions;
   }, []);
 
   // Calculate board dimensions with better mobile sizing
@@ -225,22 +254,24 @@ export default function DiamondBoard({
   const pieceSize = isMobile ? 28 : 36; // Optimized piece sizing
 
   // Helper function to check if a square is light or dark
-  const isLightSquare = (pos: DiamondPosition): boolean => {
-    const standard = diamondCoords.diamondToStandard(pos);
-    if (!standard) return false;
-    return (standard.file + standard.rank) % 2 === 0;
+  const isLightSquare = (pos: ChessPosition): boolean => {
+    return (pos.file + pos.rank) % 2 === 0;
   };
 
   // Helper function to convert diamond coordinates to screen position
-  const getScreenPosition = (pos: DiamondPosition) => {
+  const getScreenPosition = (chessPos: ChessPosition) => {
+    const diamondPos = chessToDisplay(chessPos);
+
     // Center the board and position squares
     const centerX = boardSize / 2;
     const centerY = boardSize / 2;
 
-    // Convert diamond coordinates to screen offset
-    // In diamond coordinates: x ranges from -7 to 7, y ranges from -7 to 7
-    const screenX = centerX + pos.x * squareSize * 0.7; // 0.7 for diamond spacing
-    const screenY = centerY + pos.y * squareSize * 0.7;
+    // For rotated squares (45°), use √2 * squareSize spacing to prevent overlap
+    // This ensures rotated squares touch edge-to-edge without overlapping
+    const diamondSpacing = squareSize * Math.sqrt(2);
+    const screenX = centerX + diamondPos.x * diamondSpacing;
+    // Flip y-coordinate so positive y goes up (white bottom, black top)
+    const screenY = centerY - diamondPos.y * diamondSpacing;
 
     return {
       left: screenX - squareSize / 2,
@@ -249,32 +280,45 @@ export default function DiamondBoard({
   };
 
   // Helper function to check if position is in array
-  const isPositionInArray = (
-    pos: DiamondPosition,
-    array: DiamondPosition[]
+  const isChessPositionInArray = (
+    pos: ChessPosition,
+    array: ChessPosition[]
   ): boolean => {
-    return array.some(p => p.x === pos.x && p.y === pos.y);
+    return array.some(p => p.file === pos.file && p.rank === pos.rank);
   };
 
-  const handleSquareClick = (position: DiamondPosition) => {
-    if (readOnly) return;
-    onSquareClick?.(position);
-  };
+  // Event handlers
+  const handleSquareClick = useCallback(
+    (chessPos: ChessPosition) => {
+      if (readOnly || !onSquareClick) return;
+      onSquareClick(chessPos);
+    },
+    [readOnly, onSquareClick]
+  );
 
   // Drag event handlers
   const handleDragStart = useCallback(
-    (position: DiamondPosition) => {
-      const piece = boardState.get(diamondCoords.positionToKey(position));
+    (chessPos: ChessPosition) => {
+      const piece = boardState.get(chessCoords.positionToKey(chessPos));
       if (piece && piece.color === currentTurn && !readOnly) {
-        setDraggedPiece({ piece, from: position });
+        setDraggedPiece({ piece, from: chessPos });
 
-        // Calculate valid moves for this piece
-        const moves = pieceMovement.getPossibleMoves(
-          piece,
-          position,
-          boardState
-        );
-        setLocalValidMoves(moves);
+        // Calculate valid moves for this piece using proper move validation
+        try {
+          const allLegalMoves = moveValidator.getAllLegalMoves(
+            boardState,
+            currentTurn
+          );
+          const pieceMoves = allLegalMoves.filter(
+            (move: Move) =>
+              move.from.file === chessPos.file &&
+              move.from.rank === chessPos.rank
+          );
+          setLocalValidMoves(pieceMoves.map((move: Move) => move.to));
+        } catch (error) {
+          console.error('Error calculating drag moves:', error);
+          setLocalValidMoves([]);
+        }
       }
     },
     [boardState, currentTurn, readOnly]
@@ -286,14 +330,14 @@ export default function DiamondBoard({
     setLocalValidMoves(validMoves);
   }, [validMoves]);
 
-  const handleDragOver = useCallback((position: DiamondPosition) => {
-    setDragOverPosition(position);
+  const handleDragOver = useCallback((chessPos: ChessPosition) => {
+    setDragOverPosition(chessPos);
   }, []);
 
   const handleDrop = useCallback(
-    (position: DiamondPosition) => {
+    (chessPos: ChessPosition) => {
       if (draggedPiece && onPieceMove) {
-        onPieceMove(draggedPiece.from, position);
+        onPieceMove(draggedPiece.from, chessPos);
       }
       setDraggedPiece(null);
       setDragOverPosition(null);
@@ -346,30 +390,40 @@ export default function DiamondBoard({
       )}
 
       {/* Render all squares */}
-      {allPositions.map(position => {
-        const screenPos = getScreenPosition(position);
-        const piece = boardState.get(diamondCoords.positionToKey(position));
+      {allChessPositions.map(chessPosition => {
+        const diamondPosition = chessToDisplay(chessPosition);
+        const screenPos = getScreenPosition(chessPosition);
+        const piece = boardState.get(chessCoords.positionToKey(chessPosition));
+
         const isSelected = selectedSquare
-          ? selectedSquare.x === position.x && selectedSquare.y === position.y
+          ? selectedSquare.file === chessPosition.file &&
+            selectedSquare.rank === chessPosition.rank
           : false;
-        const isValidMove = isPositionInArray(position, localValidMoves);
-        const isHighlighted = isPositionInArray(position, highlightedSquares);
+        const isValidMove = isChessPositionInArray(
+          chessPosition,
+          localValidMoves
+        );
+        const isHighlighted = isChessPositionInArray(
+          chessPosition,
+          highlightedSquares
+        );
         const isDragOver = dragOverPosition
-          ? dragOverPosition.x === position.x &&
-            dragOverPosition.y === position.y
+          ? dragOverPosition.file === chessPosition.file &&
+            dragOverPosition.rank === chessPosition.rank
           : false;
 
         return (
           <ChessSquare
-            key={diamondCoords.positionToKey(position)}
-            position={position}
+            key={chessCoords.positionToKey(chessPosition)}
+            chessPosition={chessPosition}
+            diamondPosition={diamondPosition}
             piece={piece}
-            isLight={isLightSquare(position)}
+            isLight={isLightSquare(chessPosition)}
             isSelected={isSelected}
             isValidMove={isValidMove}
             isHighlighted={isHighlighted}
             isDragOver={isDragOver}
-            onClick={() => handleSquareClick(position)}
+            onClick={() => handleSquareClick(chessPosition)}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             onDragOver={handleDragOver}

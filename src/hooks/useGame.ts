@@ -2,6 +2,7 @@
 
 import useSWR from 'swr';
 import { useSession } from 'next-auth/react';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import {
   makeMove,
@@ -23,6 +24,12 @@ import type {
   BoardState,
 } from '@/types/game';
 import { useState } from 'react';
+
+// Utility hook to detect if we're on a match page (to conditionally disable polling)
+function useIsOnMatchPage(): boolean {
+  const pathname = usePathname();
+  return pathname ? pathname.startsWith('/match/') : false;
+}
 
 // Enhanced SWR fetcher functions with better error handling
 const userMatchesFetcher = async (): Promise<UserMatchesResult> => {
@@ -47,22 +54,58 @@ const matchSessionFetcher = async (
 };
 
 /**
- * User matches hook - temporarily disabled to prevent cache conflicts
- *
- * TODO: Re-implement with proper cache key isolation when needed
- * Strategy for re-enabling:
- * 1. Use different cache keys (e.g., 'user-matches-list' vs 'match-session')
- * 2. Implement conditional polling (disable when on match pages)
- * 3. Use different Prisma cache strategies for different endpoints
- * 4. Consider using React Query with proper cache boundaries
+ * User matches hook with conditional polling to prevent cache conflicts
+ * Automatically disables polling when on match pages to avoid interference
  */
 export function useUserMatches(options: UseMatchOptions = {}) {
+  const {
+    realtime = true,
+    pollInterval = 5000, // 5 seconds for matches list (slower than match session)
+  } = options;
+
+  const { user } = useAuth();
+  const isOnMatchPage = useIsOnMatchPage();
+
+  // Debug logging to verify conditional polling
+  if (process.env.NODE_ENV === 'development') {
+    console.log(
+      `🏠 useUserMatches: isOnMatchPage=${isOnMatchPage}, polling=${!isOnMatchPage && realtime ? 'ENABLED' : 'DISABLED'}`
+    );
+  }
+
+  // Use different cache key to prevent conflicts with match session polling
+  const { data, error, isLoading, mutate } = useSWR(
+    user ? ['user-matches-list', user.id] : null, // Different cache key
+    userMatchesFetcher,
+    {
+      refreshInterval: !isOnMatchPage && realtime ? pollInterval : 0, // Disable polling on match pages
+      revalidateOnFocus: !isOnMatchPage, // Don't revalidate on focus when on match pages
+      revalidateOnReconnect: realtime,
+      revalidateOnMount: true,
+      revalidateIfStale: !isOnMatchPage, // Don't auto-revalidate stale data on match pages
+      dedupingInterval: 3000,
+      errorRetryInterval: 10000,
+      retryOnError: true,
+      shouldRetryOnError: error => {
+        return error?.status !== 401 && error?.status !== 403;
+      },
+    }
+  );
+
+  const refresh = async () => {
+    try {
+      await mutate();
+    } catch (error) {
+      console.error('Failed to refresh user matches:', error);
+    }
+  };
+
   return {
-    matches: [],
-    isLoading: false,
-    error: null,
-    refresh: () => Promise.resolve(),
-    mutate: () => Promise.resolve(),
+    matches: data?.matches || [],
+    isLoading,
+    error: error?.message || null,
+    refresh,
+    mutate,
   };
 }
 

@@ -1,278 +1,101 @@
 import type {
   BoardState,
   Piece,
+  ChessPosition,
   PieceColor,
-  PieceType,
-  DiamondPosition,
 } from '@/types/game';
-import { diamondCoords } from './coordinates';
+import { chessCoords } from './coordinates';
 
-/**
- * Diamond Chess Board Setup
- *
- * Custom Diamond Chess starting position with kings in center positions
- */
+export interface BoardSetupInterface {
+  createInitialBoard(): BoardState;
+  findKing(board: BoardState, color: PieceColor): ChessPosition | null;
+  getPieceAt(board: BoardState, position: ChessPosition): Piece | undefined;
+}
 
-export class BoardSetup {
+class DiamondBoardSetup implements BoardSetupInterface {
   /**
-   * Create initial board state for Diamond Chess
+   * Create the initial diamond chess board setup
+   * White pieces positioned around bottom center (king at 7,0)
+   * Black pieces positioned around top center (king at 0,7)
    */
   createInitialBoard(): BoardState {
-    const board: BoardState = new Map();
+    const board = new Map<string, Piece>();
 
-    // Setup custom Diamond Chess formation
-    this.setupDiamondChessPieces(board);
+    // White pieces (bottom center formation)
+    this.placePiece(board, { file: 7, rank: 0 }, 'king', 'WHITE'); // King at bottom center
+    this.placePiece(board, { file: 6, rank: 1 }, 'queen', 'WHITE'); // Queen
+    this.placePiece(board, { file: 5, rank: 1 }, 'rook', 'WHITE'); // Rook 1
+    this.placePiece(board, { file: 6, rank: 2 }, 'rook', 'WHITE'); // Rook 2
+    this.placePiece(board, { file: 5, rank: 0 }, 'bishop', 'WHITE'); // Bishop 1
+    this.placePiece(board, { file: 7, rank: 1 }, 'bishop', 'WHITE'); // Bishop 2
+    this.placePiece(board, { file: 6, rank: 0 }, 'knight', 'WHITE'); // Knight 1
+    this.placePiece(board, { file: 7, rank: 2 }, 'knight', 'WHITE'); // Knight 2
+
+    // White pawns (7 pawns in diamond formation)
+    this.placePiece(board, { file: 3, rank: 0 }, 'pawn', 'WHITE');
+    this.placePiece(board, { file: 4, rank: 0 }, 'pawn', 'WHITE');
+    this.placePiece(board, { file: 4, rank: 1 }, 'pawn', 'WHITE');
+    this.placePiece(board, { file: 5, rank: 2 }, 'pawn', 'WHITE');
+    this.placePiece(board, { file: 6, rank: 3 }, 'pawn', 'WHITE');
+    this.placePiece(board, { file: 7, rank: 4 }, 'pawn', 'WHITE');
+    this.placePiece(board, { file: 7, rank: 3 }, 'pawn', 'WHITE');
+
+    // Black pieces (top center formation, mirrored from white)
+    this.placePiece(board, { file: 0, rank: 7 }, 'king', 'BLACK'); // King at top center
+    this.placePiece(board, { file: 1, rank: 6 }, 'queen', 'BLACK'); // Queen
+    this.placePiece(board, { file: 2, rank: 6 }, 'rook', 'BLACK'); // Rook 1
+    this.placePiece(board, { file: 1, rank: 5 }, 'rook', 'BLACK'); // Rook 2
+    this.placePiece(board, { file: 2, rank: 7 }, 'bishop', 'BLACK'); // Bishop 1
+    this.placePiece(board, { file: 0, rank: 6 }, 'bishop', 'BLACK'); // Bishop 2
+    this.placePiece(board, { file: 1, rank: 7 }, 'knight', 'BLACK'); // Knight 1
+    this.placePiece(board, { file: 0, rank: 5 }, 'knight', 'BLACK'); // Knight 2
+
+    // Black pawns (7 pawns in diamond formation, mirrored)
+    this.placePiece(board, { file: 4, rank: 7 }, 'pawn', 'BLACK');
+    this.placePiece(board, { file: 3, rank: 7 }, 'pawn', 'BLACK');
+    this.placePiece(board, { file: 3, rank: 6 }, 'pawn', 'BLACK');
+    this.placePiece(board, { file: 2, rank: 5 }, 'pawn', 'BLACK');
+    this.placePiece(board, { file: 1, rank: 4 }, 'pawn', 'BLACK');
+    this.placePiece(board, { file: 0, rank: 3 }, 'pawn', 'BLACK');
+    this.placePiece(board, { file: 0, rank: 4 }, 'pawn', 'BLACK');
 
     return board;
   }
 
-  /**
-   * Setup pieces in Diamond Chess formation
-   * Symmetric diamond layout as shown in game-rules.png
-   */
-  private setupDiamondChessPieces(board: BoardState): void {
-    // BLACK PIECES (Top of diamond - from top to bottom)
-
-    // Row 1: King (center top)
-    this.placePiece(board, { x: 0, y: -7 }, 'king', 'BLACK');
-
-    // Row 2: Rook, Rook
-    this.placePiece(board, { x: -1, y: -6 }, 'rook', 'BLACK');
-    this.placePiece(board, { x: 1, y: -6 }, 'rook', 'BLACK');
-
-    // Row 3: Knight, Queen, Bishop (FIXED: Added missing knight left and bishop right)
-    this.placePiece(board, { x: -2, y: -5 }, 'knight', 'BLACK'); // Added missing knight left
-    this.placePiece(board, { x: -1, y: -5 }, 'knight', 'BLACK');
-    this.placePiece(board, { x: 0, y: -5 }, 'queen', 'BLACK');
-    this.placePiece(board, { x: 1, y: -5 }, 'bishop', 'BLACK');
-    this.placePiece(board, { x: 2, y: -5 }, 'bishop', 'BLACK'); // Added missing bishop right
-
-    // Row 4: Pawn, Bishop, Knight, Pawn (FIXED: Added missing pawn left, changed pawn to knight)
-    this.placePiece(board, { x: -4, y: -3 }, 'pawn', 'BLACK'); // FIXED: Added missing pawn
-    this.placePiece(board, { x: -3, y: -4 }, 'pawn', 'BLACK'); // Added missing pawn left
-    this.placePiece(board, { x: -2, y: -4 }, 'pawn', 'BLACK');
-    this.placePiece(board, { x: -1, y: -4 }, 'bishop', 'BLACK');
-    this.placePiece(board, { x: 0, y: -4 }, 'knight', 'BLACK');
-    this.placePiece(board, { x: 1, y: -4 }, 'knight', 'BLACK'); // Changed from pawn to knight
-    this.placePiece(board, { x: 2, y: -4 }, 'pawn', 'BLACK');
-    this.placePiece(board, { x: 3, y: -4 }, 'pawn', 'BLACK'); // FIXED: Added missing pawn
-    this.placePiece(board, { x: 4, y: -3 }, 'pawn', 'BLACK'); // FIXED: Added missing pawn
-
-    // Row 5: 7 Pawns (FIXED: Added missing pawns to make full row)
-    this.placePiece(board, { x: -3, y: -3 }, 'pawn', 'BLACK'); // Added missing pawn
-    this.placePiece(board, { x: -2, y: -3 }, 'pawn', 'BLACK');
-    this.placePiece(board, { x: -1, y: -3 }, 'pawn', 'BLACK');
-    this.placePiece(board, { x: 0, y: -3 }, 'pawn', 'BLACK');
-    this.placePiece(board, { x: 1, y: -3 }, 'pawn', 'BLACK');
-    this.placePiece(board, { x: 2, y: -3 }, 'pawn', 'BLACK');
-    this.placePiece(board, { x: 3, y: -3 }, 'pawn', 'BLACK'); // Added missing pawn
-
-    // WHITE PIECES (Bottom of diamond - mirrored formation)
-
-    // Row 5: 7 Pawns (FIXED: Added missing pawns to make full row)
-    this.placePiece(board, { x: -3, y: 3 }, 'pawn', 'WHITE'); // Added missing pawn
-    this.placePiece(board, { x: -2, y: 3 }, 'pawn', 'WHITE');
-    this.placePiece(board, { x: -1, y: 3 }, 'pawn', 'WHITE');
-    this.placePiece(board, { x: 0, y: 3 }, 'pawn', 'WHITE');
-    this.placePiece(board, { x: 1, y: 3 }, 'pawn', 'WHITE');
-    this.placePiece(board, { x: 2, y: 3 }, 'pawn', 'WHITE');
-    this.placePiece(board, { x: 3, y: 3 }, 'pawn', 'WHITE'); // Added missing pawn
-
-    // Row 4: Pawn, Knight, Bishop, Pawn (FIXED: Mirrored the black side fixes)
-    this.placePiece(board, { x: -4, y: 3 }, 'pawn', 'WHITE'); // FIXED: Added missing pawn
-    this.placePiece(board, { x: -3, y: 4 }, 'pawn', 'WHITE'); // Added missing pawn left
-    this.placePiece(board, { x: -2, y: 4 }, 'pawn', 'WHITE');
-    this.placePiece(board, { x: -1, y: 4 }, 'knight', 'WHITE'); // Changed from knight to match mirror
-    this.placePiece(board, { x: 0, y: 4 }, 'bishop', 'WHITE');
-    this.placePiece(board, { x: 1, y: 4 }, 'bishop', 'WHITE'); // FIXED: Changed from knight to bishop
-    this.placePiece(board, { x: 2, y: 4 }, 'pawn', 'WHITE');
-    this.placePiece(board, { x: 3, y: 4 }, 'pawn', 'WHITE'); // FIXED: Added missing pawn
-    this.placePiece(board, { x: 4, y: 3 }, 'pawn', 'WHITE'); // FIXED: Added missing pawn
-
-    // Row 3: Bishop, Queen, Knight (FIXED: Added missing pieces to mirror black)
-    this.placePiece(board, { x: -2, y: 5 }, 'bishop', 'WHITE'); // Added missing bishop left
-    this.placePiece(board, { x: -1, y: 5 }, 'bishop', 'WHITE');
-    this.placePiece(board, { x: 0, y: 5 }, 'queen', 'WHITE');
-    this.placePiece(board, { x: 1, y: 5 }, 'knight', 'WHITE');
-    this.placePiece(board, { x: 2, y: 5 }, 'knight', 'WHITE'); // Added missing knight right
-
-    // Row 2: Rook, Rook
-    this.placePiece(board, { x: -1, y: 6 }, 'rook', 'WHITE');
-    this.placePiece(board, { x: 1, y: 6 }, 'rook', 'WHITE');
-
-    // Row 1: King (center bottom)
-    this.placePiece(board, { x: 0, y: 7 }, 'king', 'WHITE');
-  }
-
-  /**
-   * Helper method to place a piece on the board
-   */
   private placePiece(
     board: BoardState,
-    position: DiamondPosition,
-    type: PieceType,
+    position: ChessPosition,
+    type: Piece['type'],
     color: PieceColor
   ): void {
+    const key = chessCoords.positionToKey(position);
     const piece: Piece = {
       type,
       color,
-      id: `${color}-${type}-${position.x},${position.y}`,
+      id: `${color}_${type}_${key}`,
     };
-
-    const key = diamondCoords.positionToKey(position);
     board.set(key, piece);
   }
 
   /**
-   * Create an empty board
+   * Find the king of the specified color on the board
    */
-  createEmptyBoard(): BoardState {
-    return new Map();
-  }
-
-  /**
-   * Create a board from piece positions (for testing)
-   */
-  createBoardFromPieces(
-    pieces: Array<{ piece: Piece; position: DiamondPosition }>
-  ): BoardState {
-    const board: BoardState = new Map();
-
-    for (const { piece, position } of pieces) {
-      const key = diamondCoords.positionToKey(position);
-      board.set(key, piece);
-    }
-
-    return board;
-  }
-
-  /**
-   * Get all pieces of a specific color from board
-   */
-  getPiecesByColor(
-    board: BoardState,
-    color: PieceColor
-  ): Array<{ piece: Piece; position: DiamondPosition }> {
-    const pieces: Array<{ piece: Piece; position: DiamondPosition }> = [];
-
-    for (const [key, piece] of board) {
-      if (piece.color === color) {
-        const position = diamondCoords.keyToPosition(key);
-        pieces.push({ piece, position });
-      }
-    }
-
-    return pieces;
-  }
-
-  /**
-   * Find king position for a specific color
-   */
-  findKing(board: BoardState, color: PieceColor): DiamondPosition | null {
-    for (const [key, piece] of board) {
+  findKing(board: BoardState, color: PieceColor): ChessPosition | null {
+    for (const [positionKey, piece] of board.entries()) {
       if (piece.type === 'king' && piece.color === color) {
-        return diamondCoords.keyToPosition(key);
+        return chessCoords.keyToPosition(positionKey);
       }
     }
     return null;
   }
 
   /**
-   * Get piece at specific position
+   * Get the piece at the specified position
    */
-  getPieceAt(board: BoardState, position: DiamondPosition): Piece | null {
-    const key = diamondCoords.positionToKey(position);
-    return board.get(key) || null;
-  }
-
-  /**
-   * Move piece on board (without validation)
-   */
-  movePiece(
-    board: BoardState,
-    from: DiamondPosition,
-    to: DiamondPosition
-  ): { board: BoardState; capturedPiece?: Piece } {
-    const newBoard = new Map(board);
-    const fromKey = diamondCoords.positionToKey(from);
-    const toKey = diamondCoords.positionToKey(to);
-
-    const piece = newBoard.get(fromKey);
-    if (!piece) {
-      throw new Error('No piece at source position');
-    }
-
-    const capturedPiece = newBoard.get(toKey);
-
-    // Move the piece
-    newBoard.delete(fromKey);
-    newBoard.set(toKey, piece);
-
-    return { board: newBoard, capturedPiece };
-  }
-
-  /**
-   * Create a copy of the board
-   */
-  cloneBoard(board: BoardState): BoardState {
-    return new Map(board);
-  }
-
-  /**
-   * Get board representation as string (for debugging)
-   */
-  boardToString(board: BoardState): string {
-    const lines: string[] = [];
-
-    // Get all valid positions and sort them for display
-    const positions = diamondCoords.getAllValidPositions();
-    const groupedByY = new Map<number, DiamondPosition[]>();
-
-    for (const pos of positions) {
-      if (!groupedByY.has(pos.y)) {
-        groupedByY.set(pos.y, []);
-      }
-      groupedByY.get(pos.y)!.push(pos);
-    }
-
-    // Sort by Y coordinate (top to bottom)
-    const sortedYs = Array.from(groupedByY.keys()).sort((a, b) => b - a);
-
-    for (const y of sortedYs) {
-      const rowPositions = groupedByY.get(y)!.sort((a, b) => a.x - b.x);
-      const line = rowPositions
-        .map(pos => {
-          const piece = this.getPieceAt(board, pos);
-          if (!piece) return '.';
-
-          const symbol = this.pieceToSymbol(piece);
-          return piece.color === 'WHITE'
-            ? symbol.toUpperCase()
-            : symbol.toLowerCase();
-        })
-        .join(' ');
-
-      lines.push(`Y${y.toString().padStart(2)}: ${line}`);
-    }
-
-    return lines.join('\n');
-  }
-
-  /**
-   * Convert piece to single character symbol
-   */
-  private pieceToSymbol(piece: Piece): string {
-    const symbols = {
-      king: 'k',
-      queen: 'q',
-      rook: 'r',
-      bishop: 'b',
-      knight: 'n',
-      pawn: 'p',
-    };
-    return symbols[piece.type];
+  getPieceAt(board: BoardState, position: ChessPosition): Piece | undefined {
+    const key = chessCoords.positionToKey(position);
+    return board.get(key);
   }
 }
 
-// Export singleton instance
-export const boardSetup = new BoardSetup();
+export const boardSetup = new DiamondBoardSetup();

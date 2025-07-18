@@ -1,148 +1,175 @@
 import type {
-  DiamondPosition,
+  BoardState,
   Piece,
   PieceColor,
-  PieceType,
-  BoardState,
+  ChessPosition,
 } from '@/types/game';
-import { diamondCoords } from './coordinates';
+import { chessCoords } from './coordinates';
 
 /**
- * Diamond Chess Piece Movement Rules
+ * Standard Chess Piece Movement Logic
  *
- * Modified pawn mechanics:
- * - White pawns: Move NW/NE (up-left/up-right in diamond), capture diagonally right (N in diamond)
- * - Black pawns: Move SW/SE (down-left/down-right in diamond), capture diagonally left (S in diamond)
+ * Implements standard chess piece movement rules on an 8x8 grid.
+ * This is much simpler than trying to adapt chess rules to diamond coordinates.
  *
- * All other pieces follow standard chess rules adapted to diamond grid
+ * Diamond Chess Special Rules:
+ * - Pawns: White pawns move NW/NE diagonally, capture N (straight up)
+ * - Pawns: Black pawns move SW/SE diagonally, capture S (straight down)
+ * - All other pieces follow standard chess movement rules
  */
 
-export interface MoveOptions {
-  capturesOnly?: boolean;
-  includeBlocked?: boolean;
+interface MoveOptions {
+  capturesOnly?: boolean; // Only return moves that capture opponent pieces
 }
 
-export class PieceMovement {
+class StandardPieceMovement {
   /**
-   * Get all possible moves for a piece at given position
+   * Get all possible moves for a piece at a given position
    */
   getPossibleMoves(
     piece: Piece,
-    position: DiamondPosition,
+    position: ChessPosition,
     board: BoardState,
     options: MoveOptions = {}
-  ): DiamondPosition[] {
+  ): ChessPosition[] {
+    if (!chessCoords.isValidChessPosition(position)) {
+      return [];
+    }
+
     switch (piece.type) {
       case 'pawn':
         return this.getPawnMoves(piece, position, board, options);
       case 'rook':
-        return this.getRookMoves(piece.color, position, board, options);
+        return this.getRookMoves(piece, position, board, options);
       case 'bishop':
-        return this.getBishopMoves(piece.color, position, board, options);
+        return this.getBishopMoves(piece, position, board, options);
       case 'queen':
-        return this.getQueenMoves(piece.color, position, board, options);
+        return this.getQueenMoves(piece, position, board, options);
       case 'king':
-        return this.getKingMoves(piece.color, position, board, options);
+        return this.getKingMoves(piece, position, board, options);
       case 'knight':
-        return this.getKnightMoves(piece.color, position, board, options);
+        return this.getKnightMoves(piece, position, board, options);
       default:
         return [];
     }
   }
 
   /**
-   * Diamond Chess Pawn Movement - Original Rules
-   * White: Move NW/NE (diagonally forward), capture N (straight forward)
-   * Black: Move SW/SE (diagonally forward), capture S (straight forward)
+   * Diamond Chess Pawn Movement:
+   * - White pawns: Move NW/NE diagonally, capture N (straight up)
+   * - Black pawns: Move SW/SE diagonally, capture S (straight down)
    */
   private getPawnMoves(
     piece: Piece,
-    position: DiamondPosition,
+    position: ChessPosition,
     board: BoardState,
     options: MoveOptions
-  ): DiamondPosition[] {
-    const moves: DiamondPosition[] = [];
-    const { x, y } = position;
+  ): ChessPosition[] {
+    const moves: ChessPosition[] = [];
+    const { file, rank } = position;
     const isWhite = piece.color === 'WHITE';
 
     if (options.capturesOnly) {
-      // Only capture moves - different from movement direction!
+      // Diamond Chess: Pawns capture straight forward/backward
       if (isWhite) {
-        // White pawns capture straight forward (N in diamond = smaller Y)
-        const capturePos = { x, y: y - 1 };
-        if (this.isValidMove(capturePos, board, piece.color, true)) {
+        // White pawns capture straight up (north)
+        const capturePos = { file, rank: rank + 1 };
+        if (this.canCapture(capturePos, piece.color, board)) {
           moves.push(capturePos);
         }
       } else {
-        // Black pawns capture straight forward (S in diamond = larger Y)
-        const capturePos = { x, y: y + 1 };
-        if (this.isValidMove(capturePos, board, piece.color, true)) {
+        // Black pawns capture straight down (south)
+        const capturePos = { file, rank: rank - 1 };
+        if (this.canCapture(capturePos, piece.color, board)) {
           moves.push(capturePos);
         }
       }
     } else {
+      // Diamond Chess: Pawns move diagonally
       if (isWhite) {
-        // White pawn movement: NW and NE (diagonally forward toward smaller Y)
-        const movePositions = [
-          { x: x - 1, y: y - 1 }, // NW
-          { x: x + 1, y: y - 1 }, // NE
-        ];
+        // White pawns move NW and NE diagonally
+        const moveNW = { file: file - 1, rank: rank + 1 }; // Northwest
+        const moveNE = { file: file + 1, rank: rank + 1 }; // Northeast
 
-        for (const movePos of movePositions) {
-          if (this.isValidMove(movePos, board, piece.color, false)) {
-            moves.push(movePos);
+        if (this.isEmptySquare(moveNW, board)) moves.push(moveNW);
+        if (this.isEmptySquare(moveNE, board)) moves.push(moveNE);
+
+        // Two-square initial move from starting position
+        if (rank === 1) {
+          // Check both diagonal double moves if the single moves are clear
+          if (this.isEmptySquare(moveNW, board)) {
+            const doubleNW = { file: file - 2, rank: rank + 2 };
+            if (this.isEmptySquare(doubleNW, board)) moves.push(doubleNW);
+          }
+          if (this.isEmptySquare(moveNE, board)) {
+            const doubleNE = { file: file + 2, rank: rank + 2 };
+            if (this.isEmptySquare(doubleNE, board)) moves.push(doubleNE);
           }
         }
 
-        // White pawn capture: straight forward (N = smaller Y)
-        const capturePos = { x, y: y - 1 };
-        if (this.isValidMove(capturePos, board, piece.color, true)) {
+        // Capture moves (straight up for white in Diamond Chess)
+        const capturePos = { file, rank: rank + 1 };
+        if (this.canCapture(capturePos, piece.color, board)) {
           moves.push(capturePos);
         }
       } else {
-        // Black pawn movement: SW and SE (diagonally forward toward larger Y)
-        const movePositions = [
-          { x: x - 1, y: y + 1 }, // SW
-          { x: x + 1, y: y + 1 }, // SE
-        ];
+        // Black pawns move SW and SE diagonally
+        const moveSW = { file: file - 1, rank: rank - 1 }; // Southwest
+        const moveSE = { file: file + 1, rank: rank - 1 }; // Southeast
 
-        for (const movePos of movePositions) {
-          if (this.isValidMove(movePos, board, piece.color, false)) {
-            moves.push(movePos);
+        if (this.isEmptySquare(moveSW, board)) moves.push(moveSW);
+        if (this.isEmptySquare(moveSE, board)) moves.push(moveSE);
+
+        // Two-square initial move from starting position
+        if (rank === 6) {
+          // Check both diagonal double moves if the single moves are clear
+          if (this.isEmptySquare(moveSW, board)) {
+            const doubleSW = { file: file - 2, rank: rank - 2 };
+            if (this.isEmptySquare(doubleSW, board)) moves.push(doubleSW);
+          }
+          if (this.isEmptySquare(moveSE, board)) {
+            const doubleSE = { file: file + 2, rank: rank - 2 };
+            if (this.isEmptySquare(doubleSE, board)) moves.push(doubleSE);
           }
         }
 
-        // Black pawn capture: straight forward (S = larger Y)
-        const capturePos = { x, y: y + 1 };
-        if (this.isValidMove(capturePos, board, piece.color, true)) {
+        // Capture moves (straight down for black in Diamond Chess)
+        const capturePos = { file, rank: rank - 1 };
+        if (this.canCapture(capturePos, piece.color, board)) {
           moves.push(capturePos);
         }
       }
     }
 
-    return moves;
+    return moves.filter(pos => chessCoords.isValidChessPosition(pos));
   }
 
   /**
-   * Rook movement - horizontal and vertical lines in diamond
+   * Standard rook movement (horizontal and vertical lines)
    */
   private getRookMoves(
-    color: PieceColor,
-    position: DiamondPosition,
+    piece: Piece,
+    position: ChessPosition,
     board: BoardState,
     options: MoveOptions
-  ): DiamondPosition[] {
-    const moves: DiamondPosition[] = [];
+  ): ChessPosition[] {
+    const moves: ChessPosition[] = [];
     const directions = [
-      { x: 1, y: 0 }, // Right
-      { x: -1, y: 0 }, // Left
-      { x: 0, y: 1 }, // Up
-      { x: 0, y: -1 }, // Down
+      { file: 1, rank: 0 }, // Right
+      { file: -1, rank: 0 }, // Left
+      { file: 0, rank: 1 }, // Up
+      { file: 0, rank: -1 }, // Down
     ];
 
     for (const direction of directions) {
       moves.push(
-        ...this.getLineMoves(color, position, direction, board, options)
+        ...this.getMovesInDirection(
+          position,
+          direction,
+          board,
+          piece.color,
+          options
+        )
       );
     }
 
@@ -150,25 +177,31 @@ export class PieceMovement {
   }
 
   /**
-   * Bishop movement - diagonal lines in diamond
+   * Standard bishop movement (diagonal lines)
    */
   private getBishopMoves(
-    color: PieceColor,
-    position: DiamondPosition,
+    piece: Piece,
+    position: ChessPosition,
     board: BoardState,
     options: MoveOptions
-  ): DiamondPosition[] {
-    const moves: DiamondPosition[] = [];
+  ): ChessPosition[] {
+    const moves: ChessPosition[] = [];
     const directions = [
-      { x: 1, y: 1 }, // Up-Right
-      { x: -1, y: -1 }, // Down-Left
-      { x: 1, y: -1 }, // Down-Right
-      { x: -1, y: 1 }, // Up-Left
+      { file: 1, rank: 1 }, // Up-Right
+      { file: -1, rank: -1 }, // Down-Left
+      { file: 1, rank: -1 }, // Down-Right
+      { file: -1, rank: 1 }, // Up-Left
     ];
 
     for (const direction of directions) {
       moves.push(
-        ...this.getLineMoves(color, position, direction, board, options)
+        ...this.getMovesInDirection(
+          position,
+          direction,
+          board,
+          piece.color,
+          options
+        )
       );
     }
 
@@ -176,48 +209,62 @@ export class PieceMovement {
   }
 
   /**
-   * Queen movement - combination of rook and bishop
+   * Standard queen movement (combination of rook and bishop)
    */
   private getQueenMoves(
-    color: PieceColor,
-    position: DiamondPosition,
+    piece: Piece,
+    position: ChessPosition,
     board: BoardState,
     options: MoveOptions
-  ): DiamondPosition[] {
-    return [
-      ...this.getRookMoves(color, position, board, options),
-      ...this.getBishopMoves(color, position, board, options),
-    ];
+  ): ChessPosition[] {
+    const rookMoves = this.getRookMoves(piece, position, board, options);
+    const bishopMoves = this.getBishopMoves(piece, position, board, options);
+    return [...rookMoves, ...bishopMoves];
   }
 
   /**
-   * King movement - one square in any direction
+   * Standard king movement (one square in any direction)
    */
   private getKingMoves(
-    color: PieceColor,
-    position: DiamondPosition,
+    piece: Piece,
+    position: ChessPosition,
     board: BoardState,
     options: MoveOptions
-  ): DiamondPosition[] {
-    const moves: DiamondPosition[] = [];
-    const { x, y } = position;
+  ): ChessPosition[] {
+    const moves: ChessPosition[] = [];
+    const { file, rank } = position;
 
-    const kingMoves = [
-      { x: x + 1, y }, // Right
-      { x: x - 1, y }, // Left
-      { x, y: y + 1 }, // Up
-      { x, y: y - 1 }, // Down
-      { x: x + 1, y: y + 1 }, // Up-Right
-      { x: x - 1, y: y - 1 }, // Down-Left
-      { x: x + 1, y: y - 1 }, // Down-Right
-      { x: x - 1, y: y + 1 }, // Up-Left
+    const directions = [
+      { file: 1, rank: 0 }, // Right
+      { file: -1, rank: 0 }, // Left
+      { file: 0, rank: 1 }, // Up
+      { file: 0, rank: -1 }, // Down
+      { file: 1, rank: 1 }, // Up-Right
+      { file: -1, rank: -1 }, // Down-Left
+      { file: 1, rank: -1 }, // Down-Right
+      { file: -1, rank: 1 }, // Up-Left
     ];
 
-    for (const move of kingMoves) {
-      if (diamondCoords.isValidDiamondPosition(move)) {
-        const piece = this.getPieceAt(move, board);
-        if (!piece || piece.color !== color) {
-          moves.push(move);
+    for (const direction of directions) {
+      const newPos = {
+        file: file + direction.file,
+        rank: rank + direction.rank,
+      };
+
+      if (chessCoords.isValidChessPosition(newPos)) {
+        if (options.capturesOnly) {
+          // Only capture moves
+          if (this.canCapture(newPos, piece.color, board)) {
+            moves.push(newPos);
+          }
+        } else {
+          // Both movement and capture moves
+          if (
+            this.isEmptySquare(newPos, board) ||
+            this.canCapture(newPos, piece.color, board)
+          ) {
+            moves.push(newPos);
+          }
         }
       }
     }
@@ -226,33 +273,43 @@ export class PieceMovement {
   }
 
   /**
-   * Knight movement - L-shaped moves adapted to diamond grid
+   * Standard knight movement (L-shapes)
    */
   private getKnightMoves(
-    color: PieceColor,
-    position: DiamondPosition,
+    piece: Piece,
+    position: ChessPosition,
     board: BoardState,
     options: MoveOptions
-  ): DiamondPosition[] {
-    const moves: DiamondPosition[] = [];
-    const { x, y } = position;
+  ): ChessPosition[] {
+    const moves: ChessPosition[] = [];
+    const { file, rank } = position;
 
     const knightMoves = [
-      { x: x + 2, y: y + 1 },
-      { x: x + 2, y: y - 1 },
-      { x: x - 2, y: y + 1 },
-      { x: x - 2, y: y - 1 },
-      { x: x + 1, y: y + 2 },
-      { x: x - 1, y: y + 2 },
-      { x: x + 1, y: y - 2 },
-      { x: x - 1, y: y - 2 },
+      { file: file + 2, rank: rank + 1 },
+      { file: file + 2, rank: rank - 1 },
+      { file: file - 2, rank: rank + 1 },
+      { file: file - 2, rank: rank - 1 },
+      { file: file + 1, rank: rank + 2 },
+      { file: file - 1, rank: rank + 2 },
+      { file: file + 1, rank: rank - 2 },
+      { file: file - 1, rank: rank - 2 },
     ];
 
     for (const move of knightMoves) {
-      if (diamondCoords.isValidDiamondPosition(move)) {
-        const piece = this.getPieceAt(move, board);
-        if (!piece || piece.color !== color) {
-          moves.push(move);
+      if (chessCoords.isValidChessPosition(move)) {
+        if (options.capturesOnly) {
+          // Only capture moves
+          if (this.canCapture(move, piece.color, board)) {
+            moves.push(move);
+          }
+        } else {
+          // Both movement and capture moves
+          if (
+            this.isEmptySquare(move, board) ||
+            this.canCapture(move, piece.color, board)
+          ) {
+            moves.push(move);
+          }
         }
       }
     }
@@ -261,80 +318,78 @@ export class PieceMovement {
   }
 
   /**
-   * Get moves along a line (for rook, bishop, queen)
+   * Helper method to get moves in a specific direction (for sliding pieces)
    */
-  private getLineMoves(
-    color: PieceColor,
-    position: DiamondPosition,
-    direction: DiamondPosition,
+  private getMovesInDirection(
+    position: ChessPosition,
+    direction: { file: number; rank: number },
     board: BoardState,
+    color: PieceColor,
     options: MoveOptions
-  ): DiamondPosition[] {
-    const moves: DiamondPosition[] = [];
+  ): ChessPosition[] {
+    const moves: ChessPosition[] = [];
     let current = {
-      x: position.x + direction.x,
-      y: position.y + direction.y,
+      file: position.file + direction.file,
+      rank: position.rank + direction.rank,
     };
 
-    while (diamondCoords.isValidDiamondPosition(current)) {
-      const piece = this.getPieceAt(current, board);
-
-      if (!piece) {
-        // Empty square
+    while (chessCoords.isValidChessPosition(current)) {
+      if (this.isEmptySquare(current, board)) {
+        // Empty square - can move here if not captures-only
         if (!options.capturesOnly) {
           moves.push({ ...current });
         }
+      } else if (this.canCapture(current, color, board)) {
+        // Enemy piece - can capture
+        moves.push({ ...current });
+        break; // Stop after capture
       } else {
-        // Occupied square
-        if (piece.color !== color) {
-          // Enemy piece - can capture
-          moves.push({ ...current });
-        }
-        break; // Can't move further
+        // Own piece - stop
+        break;
       }
 
-      current.x += direction.x;
-      current.y += direction.y;
+      current.file += direction.file;
+      current.rank += direction.rank;
     }
 
     return moves;
   }
 
   /**
-   * Check if a move is valid
+   * Check if a square is empty
    */
-  private isValidMove(
-    position: DiamondPosition,
-    board: BoardState,
-    pieceColor: PieceColor,
-    captureOnly: boolean
-  ): boolean {
-    if (!diamondCoords.isValidDiamondPosition(position)) {
+  private isEmptySquare(position: ChessPosition, board: BoardState): boolean {
+    if (!chessCoords.isValidChessPosition(position)) {
       return false;
     }
+    const key = chessCoords.positionToKey(position);
+    return !board.has(key);
+  }
 
-    const piece = this.getPieceAt(position, board);
-
-    if (captureOnly) {
-      // Must have enemy piece to capture
-      return piece !== null && piece.color !== pieceColor;
-    } else {
-      // Must be empty for regular move
-      return piece === null;
+  /**
+   * Check if a piece can capture at the given position
+   */
+  private canCapture(
+    position: ChessPosition,
+    color: PieceColor,
+    board: BoardState
+  ): boolean {
+    if (!chessCoords.isValidChessPosition(position)) {
+      return false;
     }
+    const key = chessCoords.positionToKey(position);
+    const piece = board.get(key);
+    return piece !== undefined && piece.color !== color;
   }
 
   /**
    * Get piece at position
    */
-  private getPieceAt(
-    position: DiamondPosition,
-    board: BoardState
-  ): Piece | null {
-    const key = diamondCoords.positionToKey(position);
+  private getPieceAt(position: ChessPosition, board: BoardState): Piece | null {
+    const key = chessCoords.positionToKey(position);
     return board.get(key) || null;
   }
 }
 
 // Export singleton instance
-export const pieceMovement = new PieceMovement();
+export const pieceMovement = new StandardPieceMovement();

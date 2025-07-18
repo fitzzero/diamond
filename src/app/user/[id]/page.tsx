@@ -69,11 +69,7 @@ export default function UserProfilePage() {
   const userId = params.id as string;
 
   const [activeTab, setActiveTab] = useState(0);
-  const { matches: userMatchesResult, isLoading: matchesLoading } =
-    useUserMatches();
-
-  // Since useUserMatches is temporarily disabled, handle empty state gracefully
-  const userMatches: any[] = userMatchesResult || [];
+  const { matches: userMatches, isLoading: matchesLoading } = useUserMatches();
 
   const isOwnProfile = currentUser?.id === userId;
 
@@ -404,14 +400,14 @@ export default function UserProfilePage() {
                           <TableCell>
                             <Chip
                               label={match.status.replace('_', ' ')}
-                              color={getMatchStatusColor(match.status) as any}
+                              color={getMatchStatusColor(match.status)}
                               size="small"
                             />
                           </TableCell>
                           <TableCell>
                             <Chip
                               label={getMatchResult(match)}
-                              color={getMatchResultColor(match) as any}
+                              color={getMatchResultColor(match)}
                               size="small"
                               variant="outlined"
                             />

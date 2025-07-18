@@ -28,7 +28,8 @@ import { useMatchSession } from '@/hooks/useGame';
 import { MainLayout } from '@/components/layout';
 import { DiamondBoard, MoveHistory } from '@/components/game';
 import type { DiamondPosition, PieceColor, Move } from '@/types/game';
-import { diamondCoords } from '@/lib/game/coordinates';
+import { diamondCoords, chessCoords } from '@/lib/game/coordinates';
+import { moveValidator } from '@/lib/game/moveValidation';
 
 export default function MatchPage() {
   const params = useParams();
@@ -66,6 +67,24 @@ export default function MatchPage() {
     }
   }, [notification]);
 
+  // Clear selections when game changes or it's not the user's turn
+  // Note: We need to calculate isMyTurn here to avoid hooks order issues
+  const isPlayer1 = match?.player1Id === user?.id;
+  const isPlayer2 = match?.player2Id === user?.id;
+  const isParticipant = isPlayer1 || isPlayer2;
+  const currentIsMyTurn =
+    game &&
+    isParticipant &&
+    ((game.currentTurn === 'WHITE' && isPlayer1) ||
+      (game.currentTurn === 'BLACK' && isPlayer2));
+
+  useEffect(() => {
+    if (!currentIsMyTurn || !game) {
+      setSelectedSquare(null);
+      setValidMoves([]);
+    }
+  }, [currentIsMyTurn, game?.currentTurn, game?.id]);
+
   const handleJoinMatch = async () => {
     if (joinLoading) return;
     setJoinLoading(true);
@@ -87,10 +106,7 @@ export default function MatchPage() {
     });
   };
 
-  const handlePieceMove = async (
-    from: DiamondPosition,
-    to: DiamondPosition
-  ) => {
+  const handlePieceMove = async (from: ChessPosition, to: ChessPosition) => {
     if (moveLoading || !game || !isParticipant) return;
 
     const isMyTurn =
@@ -103,7 +119,7 @@ export default function MatchPage() {
 
     setMoveLoading(true);
     try {
-      const piece = game.boardState.get(diamondCoords.positionToKey(from));
+      const piece = game.boardState.get(chessCoords.positionToKey(from));
       if (!piece) {
         setNotification('No piece at source position');
         return;
@@ -129,6 +145,94 @@ export default function MatchPage() {
   const handleManualRefresh = () => {
     refresh();
     setNotification('Refreshing...');
+  };
+
+  const handleSquareClick = (position: ChessPosition) => {
+    if (
+      !game ||
+      !match ||
+      !isParticipant ||
+      match.status !== 'IN_PROGRESS' ||
+      !isMyTurn ||
+      moveLoading
+    ) {
+      return;
+    }
+
+    const pieceKey = chessCoords.positionToKey(position);
+    const clickedPiece = game.boardState.get(pieceKey);
+
+    // If no piece is selected
+    if (!selectedSquare) {
+      // Can only select own pieces
+      if (clickedPiece && clickedPiece.color === game.currentTurn) {
+        setSelectedSquare(position);
+
+        // Calculate valid moves for this piece using proper move validation
+        try {
+          const allLegalMoves = moveValidator.getAllLegalMoves(
+            game.boardState,
+            game.currentTurn
+          );
+          const pieceMoves = allLegalMoves.filter(
+            (move: Move) =>
+              move.from.file === position.file &&
+              move.from.rank === position.rank
+          );
+          setValidMoves(pieceMoves.map((move: Move) => move.to));
+        } catch (error) {
+          console.error('Error calculating moves:', error);
+          setValidMoves([]);
+        }
+      }
+      return;
+    }
+
+    // If clicking the same square, deselect
+    if (
+      selectedSquare.file === position.file &&
+      selectedSquare.rank === position.rank
+    ) {
+      setSelectedSquare(null);
+      setValidMoves([]);
+      return;
+    }
+
+    // If selecting a different piece of the same color
+    if (clickedPiece && clickedPiece.color === game.currentTurn) {
+      setSelectedSquare(position);
+
+      // Calculate valid moves for the new piece
+      try {
+        const allLegalMoves = moveValidator.getAllLegalMoves(
+          game.boardState,
+          game.currentTurn
+        );
+        const pieceMoves = allLegalMoves.filter(
+          (move: Move) =>
+            move.from.file === position.file && move.from.rank === position.rank
+        );
+        setValidMoves(pieceMoves.map((move: Move) => move.to));
+      } catch (error) {
+        console.error('Error calculating moves:', error);
+        setValidMoves([]);
+      }
+      return;
+    }
+
+    // Try to make a move from selected square to clicked square
+    const isValidMove = validMoves.some(
+      move => move.file === position.file && move.rank === position.rank
+    );
+
+    if (isValidMove) {
+      handlePieceMove(selectedSquare, position);
+    } else {
+      setNotification('Invalid move');
+      // Clear selection if invalid move attempted
+      setSelectedSquare(null);
+      setValidMoves([]);
+    }
   };
 
   // Auth check
@@ -170,15 +274,8 @@ export default function MatchPage() {
     );
   }
 
-  const isPlayer1 = match.player1Id === user?.id;
-  const isPlayer2 = match.player2Id === user?.id;
-  const isParticipant = isPlayer1 || isPlayer2;
   const canJoin = match.status === 'WAITING_FOR_PLAYER' && !isParticipant;
-  const isMyTurn =
-    game &&
-    isParticipant &&
-    ((game.currentTurn === 'WHITE' && isPlayer1) ||
-      (game.currentTurn === 'BLACK' && isPlayer2));
+  const isMyTurn = currentIsMyTurn; // Use the value calculated earlier
 
   return (
     <MainLayout>
@@ -273,7 +370,7 @@ export default function MatchPage() {
             <DiamondBoard
               boardState={game.boardState}
               currentTurn={game.currentTurn}
-              onSquareClick={pos => setSelectedSquare(pos)}
+              onSquareClick={handleSquareClick}
               onPieceMove={handlePieceMove}
               selectedSquare={selectedSquare}
               validMoves={validMoves}

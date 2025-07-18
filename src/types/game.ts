@@ -15,22 +15,28 @@ export interface Piece {
   id: string; // Unique identifier for each piece
 }
 
-// Standard chess position (0-7, 0-7)
-export interface StandardPosition {
-  file: number; // 0-7 (a-h)
-  rank: number; // 0-7 (1-8)
+// Standard chess position (0-7, 0-7) - This is now our primary coordinate system
+export interface ChessPosition {
+  file: number; // 0-7 (a-h) - left to right
+  rank: number; // 0-7 (1-8) - bottom to top
 }
 
-// Diamond position - rotated 45 degrees
+// Diamond display position - only used for UI rendering
+export interface DiamondDisplayPosition {
+  x: number; // Diamond x-coordinate for visual display
+  y: number; // Diamond y-coordinate for visual display
+}
+
+// Legacy diamond position - keeping for compatibility during transition
 export interface DiamondPosition {
-  x: number; // Diamond x-coordinate (-7 to 7)
-  y: number; // Diamond y-coordinate (-7 to 7)
+  x: number;
+  y: number;
 }
 
-// Move representation
+// Move representation using standard chess coordinates
 export interface Move {
-  from: DiamondPosition;
-  to: DiamondPosition;
+  from: ChessPosition;
+  to: ChessPosition;
   piece: Piece;
   capturedPiece?: Piece;
   isCheck?: boolean;
@@ -39,8 +45,8 @@ export interface Move {
   moveNotation?: string; // Algebraic notation
 }
 
-// Board state - using diamond coordinates
-export type BoardState = Map<string, Piece>; // key: "x,y", value: Piece
+// Board state - using standard chess coordinates
+export type BoardState = Map<string, Piece>; // key: "file,rank", value: Piece
 
 // Game status
 export type GameStatus =
@@ -61,7 +67,7 @@ export interface GameState {
   moves: Move[];
   check?: {
     color: PieceColor;
-    kingPosition: DiamondPosition;
+    kingPosition: ChessPosition;
   };
 }
 
@@ -77,11 +83,20 @@ export interface MatchInfo {
 
 // Coordinate conversion utilities type
 export interface CoordinateConverter {
-  standardToDiamond: (pos: StandardPosition) => DiamondPosition;
-  diamondToStandard: (pos: DiamondPosition) => StandardPosition | null;
-  isValidDiamondPosition: (pos: DiamondPosition) => boolean;
-  positionToKey: (pos: DiamondPosition) => string;
-  keyToPosition: (key: string) => DiamondPosition;
+  // Convert standard chess position to diamond display position for UI
+  chessToDisplayDiamond: (pos: ChessPosition) => DiamondDisplayPosition;
+  // Convert diamond display position back to chess position
+  displayDiamondToChess: (pos: DiamondDisplayPosition) => ChessPosition | null;
+  // Check if chess position is valid (0-7, 0-7)
+  isValidChessPosition: (pos: ChessPosition) => boolean;
+  // Convert position to storage key
+  positionToKey: (pos: ChessPosition) => string;
+  // Convert storage key to position
+  keyToPosition: (key: string) => ChessPosition;
+
+  // Legacy diamond support (for migration)
+  legacyDiamondToChess: (pos: DiamondPosition) => ChessPosition | null;
+  chessToLegacyDiamond: (pos: ChessPosition) => DiamondPosition;
 }
 
 // === PRISMA-ALIGNED TYPES FOR SERVER ACTIONS ===
@@ -116,8 +131,8 @@ export interface EnhancedGameState {
   gameNumber: number;
   status: PrismaGameStatus;
   currentTurn: PrismaPieceColor;
-  boardState: BoardState; // Parsed from JSON
-  moveHistory: Move[]; // Parsed from JSON
+  boardState: BoardState; // Parsed from JSON - now uses standard chess coordinates
+  moveHistory: Move[]; // Parsed from JSON - now uses standard chess coordinates
   whitePlayerId: string;
   blackPlayerId: string;
   startedAt: Date;
@@ -219,7 +234,7 @@ export interface UseMatchOptions {
 export interface MoveValidationResult {
   isValid: boolean;
   error?: string;
-  validMoves?: DiamondPosition[];
+  validMoves?: ChessPosition[];
   wouldCauseCheck?: boolean;
   wouldEndGame?: boolean;
 }

@@ -1,5 +1,6 @@
 import type {
-  StandardPosition,
+  ChessPosition,
+  DiamondDisplayPosition,
   DiamondPosition,
   CoordinateConverter,
 } from '@/types/game';
@@ -7,52 +8,78 @@ import type {
 /**
  * Diamond Chess Coordinate System
  *
- * Standard chess board (8x8) rotated 45 degrees to form a diamond.
+ * PRIMARY SYSTEM: Standard 8x8 Chess Grid
+ * - file: 0-7 (left to right, a-h)
+ * - rank: 0-7 (bottom to top, 1-8)
  *
- * Standard coordinates:  Diamond coordinates:
- * (0,7) (1,7) ... (7,7)      (-7,0)
- * (0,6) (1,6) ... (7,6)    (-6,-1) ... (6,1)
- * ...                      ...         ...
- * (0,1) (1,1) ... (7,1)    (-1,-6) ... (1,6)
- * (0,0) (1,0) ... (7,0)      (0,-7)
- *
- * Transformation:
- * x_diamond = file - rank
- * y_diamond = -(file + rank - 7)
+ * VISUAL DISPLAY: Diamond rotation for UI
+ * - Standard chess board rotated 45 degrees
+ * - All game logic uses standard coordinates
+ * - Only UI rendering uses diamond display positions
  */
 
-export class DiamondCoordinates implements CoordinateConverter {
+class ChessCoordinateSystem implements CoordinateConverter {
   /**
-   * Convert standard chess position to diamond coordinates
+   * Check if a chess position is valid (within 8x8 board)
    */
-  standardToDiamond(pos: StandardPosition): DiamondPosition {
-    const { file, rank } = pos;
-    return {
-      x: file - rank,
-      y: -(file + rank - 7),
-    };
+  isValidChessPosition(pos: ChessPosition): boolean {
+    return pos.file >= 0 && pos.file <= 7 && pos.rank >= 0 && pos.rank <= 7;
   }
 
   /**
-   * Convert diamond coordinates back to standard position
-   * Returns null if the diamond position is invalid
+   * Convert chess position to storage key
    */
-  diamondToStandard(pos: DiamondPosition): StandardPosition | null {
-    const { x, y } = pos;
+  positionToKey(pos: ChessPosition): string {
+    return `${pos.file},${pos.rank}`;
+  }
 
-    // Calculate standard coordinates
-    const file = (x - y + 7) / 2;
-    const rank = (-y - x + 7) / 2;
+  /**
+   * Convert storage key to chess position
+   */
+  keyToPosition(key: string): ChessPosition {
+    const [file, rank] = key.split(',').map(Number);
+    return { file, rank };
+  }
 
-    // Check if coordinates are valid integers within bounds
-    if (
-      !Number.isInteger(file) ||
-      !Number.isInteger(rank) ||
-      file < 0 ||
-      file > 7 ||
-      rank < 0 ||
-      rank > 7
-    ) {
+  /**
+   * Convert standard chess position to diamond display position for UI rendering
+   *
+   * Diamond transformation for visual display:
+   * - [0,0] (a1) = center left of diamond = (-3.5, 0)
+   * - [0,7] (a8) = top center of diamond = (0, 3.5)
+   * - [7,0] (h1) = bottom center of diamond = (0, -3.5)
+   * - [7,7] (h8) = center right of diamond = (3.5, 0)
+   */
+  chessToDisplayDiamond(pos: ChessPosition): DiamondDisplayPosition {
+    // Transform chess coordinates to diamond coordinates
+    // x increases from left to right across the diamond
+    // y increases from bottom to top of the diamond
+
+    const x = 0.5 * (pos.file + pos.rank) - 3.5;
+    const y = 0.5 * (pos.rank - pos.file);
+
+    return { x, y };
+  }
+
+  /**
+   * Convert diamond display position back to chess position
+   *
+   * Inverse of the diamond transformation
+   */
+  displayDiamondToChess(pos: DiamondDisplayPosition): ChessPosition | null {
+    // Inverse diamond transformation
+    // From: x = 0.5 * (file + rank) - 3.5, y = 0.5 * (rank - file)
+    // Solve for file and rank:
+    // x + 3.5 = 0.5 * (file + rank) -> file + rank = 2 * (x + 3.5)
+    // y = 0.5 * (rank - file) -> rank - file = 2 * y
+    // Adding: 2 * rank = 2 * (x + 3.5) + 2 * y -> rank = x + y + 3.5
+    // Subtracting: 2 * file = 2 * (x + 3.5) - 2 * y -> file = x - y + 3.5
+
+    const file = Math.round(pos.x - pos.y + 3.5);
+    const rank = Math.round(pos.x + pos.y + 3.5);
+
+    // Check if the result is valid
+    if (file < 0 || file > 7 || rank < 0 || rank > 7) {
       return null;
     }
 
@@ -60,104 +87,136 @@ export class DiamondCoordinates implements CoordinateConverter {
   }
 
   /**
-   * Check if a diamond position is valid (within the diamond shape)
+   * Convert legacy diamond position to chess position (for migration compatibility)
    */
-  isValidDiamondPosition(pos: DiamondPosition): boolean {
-    return this.diamondToStandard(pos) !== null;
+  legacyDiamondToChess(pos: DiamondPosition): ChessPosition | null {
+    return this.displayDiamondToChess({ x: pos.x, y: pos.y });
   }
 
   /**
-   * Convert diamond position to string key for Map storage
+   * Convert chess position to legacy diamond position (for migration compatibility)
    */
-  positionToKey(pos: DiamondPosition): string {
-    return `${pos.x},${pos.y}`;
+  chessToLegacyDiamond(pos: ChessPosition): DiamondPosition {
+    const display = this.chessToDisplayDiamond(pos);
+    return { x: display.x, y: display.y };
   }
 
   /**
-   * Convert string key back to diamond position
+   * Get all valid chess positions on the board
    */
-  keyToPosition(key: string): DiamondPosition {
-    const [x, y] = key.split(',').map(Number);
-    return { x, y };
-  }
-
-  /**
-   * Get all valid diamond positions on the board
-   */
-  getAllValidPositions(): DiamondPosition[] {
-    const positions: DiamondPosition[] = [];
-
-    // Generate all positions in diamond range
-    for (let x = -7; x <= 7; x++) {
-      for (let y = -7; y <= 7; y++) {
-        const pos = { x, y };
-        if (this.isValidDiamondPosition(pos)) {
-          positions.push(pos);
-        }
+  getAllValidPositions(): ChessPosition[] {
+    const positions: ChessPosition[] = [];
+    for (let file = 0; file <= 7; file++) {
+      for (let rank = 0; rank <= 7; rank++) {
+        positions.push({ file, rank });
       }
     }
-
     return positions;
   }
 
   /**
-   * Get neighboring positions in diamond grid
+   * Convert chess notation (e.g., "e4") to chess position
    */
-  getNeighbors(pos: DiamondPosition): DiamondPosition[] {
-    const { x, y } = pos;
-    const directions = [
-      { x: 1, y: 0 }, // Right
-      { x: -1, y: 0 }, // Left
-      { x: 0, y: 1 }, // Up
-      { x: 0, y: -1 }, // Down
-      { x: 1, y: 1 }, // Up-Right
-      { x: -1, y: -1 }, // Down-Left
-      { x: 1, y: -1 }, // Down-Right
-      { x: -1, y: 1 }, // Up-Left
-    ];
+  notationToPosition(notation: string): ChessPosition | null {
+    if (notation.length !== 2) return null;
 
-    return directions
-      .map(dir => ({ x: x + dir.x, y: y + dir.y }))
-      .filter(neighbor => this.isValidDiamondPosition(neighbor));
+    const file = notation.charCodeAt(0) - 'a'.charCodeAt(0);
+    const rank = parseInt(notation[1]) - 1;
+
+    const pos = { file, rank };
+    return this.isValidChessPosition(pos) ? pos : null;
   }
 
   /**
-   * Calculate distance between two diamond positions
+   * Convert chess position to chess notation (e.g., "e4")
    */
-  distance(pos1: DiamondPosition, pos2: DiamondPosition): number {
-    return Math.max(
-      Math.abs(pos1.x - pos2.x),
-      Math.abs(pos1.y - pos2.y),
-      Math.abs(pos1.x - pos1.y - (pos2.x - pos2.y))
+  positionToNotation(pos: ChessPosition): string {
+    if (!this.isValidChessPosition(pos)) return '';
+
+    const fileChar = String.fromCharCode('a'.charCodeAt(0) + pos.file);
+    const rankChar = (pos.rank + 1).toString();
+
+    return fileChar + rankChar;
+  }
+
+  /**
+   * Calculate distance between two chess positions
+   */
+  getDistance(from: ChessPosition, to: ChessPosition): number {
+    const fileDiff = Math.abs(to.file - from.file);
+    const rankDiff = Math.abs(to.rank - from.rank);
+    return Math.max(fileDiff, rankDiff); // Chebyshev distance (chess king distance)
+  }
+
+  /**
+   * Check if two positions are on the same diagonal
+   */
+  isOnSameDiagonal(from: ChessPosition, to: ChessPosition): boolean {
+    const fileDiff = Math.abs(to.file - from.file);
+    const rankDiff = Math.abs(to.rank - from.rank);
+    return fileDiff === rankDiff && fileDiff > 0;
+  }
+
+  /**
+   * Check if two positions are on the same rank or file
+   */
+  isOnSameRankOrFile(from: ChessPosition, to: ChessPosition): boolean {
+    return (
+      (from.file === to.file || from.rank === to.rank) &&
+      !(from.file === to.file && from.rank === to.rank)
     );
   }
 
   /**
-   * Get algebraic notation for a diamond position (for display)
+   * Get all positions between two positions (exclusive)
+   * Returns empty array if positions are not in a straight line
    */
-  toAlgebraic(pos: DiamondPosition): string | null {
-    const standard = this.diamondToStandard(pos);
-    if (!standard) return null;
+  getPositionsBetween(from: ChessPosition, to: ChessPosition): ChessPosition[] {
+    const positions: ChessPosition[] = [];
 
-    const file = String.fromCharCode(97 + standard.file); // a-h
-    const rank = (standard.rank + 1).toString(); // 1-8
-    return file + rank;
-  }
+    const fileDiff = to.file - from.file;
+    const rankDiff = to.rank - from.rank;
 
-  /**
-   * Parse algebraic notation to diamond position
-   */
-  fromAlgebraic(notation: string): DiamondPosition | null {
-    if (notation.length !== 2) return null;
+    // Check if positions are in a straight line (rank, file, or diagonal)
+    if (
+      fileDiff !== 0 &&
+      rankDiff !== 0 &&
+      Math.abs(fileDiff) !== Math.abs(rankDiff)
+    ) {
+      return []; // Not in a straight line
+    }
 
-    const file = notation.charCodeAt(0) - 97; // a=0, b=1, etc.
-    const rank = parseInt(notation.charAt(1)) - 1; // 1=0, 2=1, etc.
+    const steps = Math.max(Math.abs(fileDiff), Math.abs(rankDiff));
+    const fileStep = fileDiff === 0 ? 0 : fileDiff / Math.abs(fileDiff);
+    const rankStep = rankDiff === 0 ? 0 : rankDiff / Math.abs(rankDiff);
 
-    if (file < 0 || file > 7 || rank < 0 || rank > 7) return null;
+    for (let i = 1; i < steps; i++) {
+      const pos = {
+        file: from.file + i * fileStep,
+        rank: from.rank + i * rankStep,
+      };
+      positions.push(pos);
+    }
 
-    return this.standardToDiamond({ file, rank });
+    return positions;
   }
 }
 
 // Export singleton instance
-export const diamondCoords = new DiamondCoordinates();
+export const chessCoords = new ChessCoordinateSystem();
+
+// Legacy export for compatibility during migration
+export const diamondCoords = {
+  positionToKey: (pos: DiamondPosition) =>
+    chessCoords.positionToKey(
+      chessCoords.legacyDiamondToChess(pos) || { file: 0, rank: 0 }
+    ),
+  keyToPosition: (key: string) => {
+    const chessPos = chessCoords.keyToPosition(key);
+    return chessCoords.chessToLegacyDiamond(chessPos);
+  },
+  isValidDiamondPosition: (pos: DiamondPosition) => {
+    const chessPos = chessCoords.legacyDiamondToChess(pos);
+    return chessPos ? chessCoords.isValidChessPosition(chessPos) : false;
+  },
+};

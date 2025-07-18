@@ -27,8 +27,8 @@ import {
   Timeline,
 } from '@mui/icons-material';
 import { useBreakpoints } from '@/hooks';
-import type { Move, DiamondPosition } from '@/types/game';
-import { diamondCoords } from '@/lib/game/coordinates';
+import type { Move, ChessPosition } from '@/types/game';
+import { chessCoords } from '@/lib/game/coordinates';
 
 interface MoveHistoryProps {
   moves: Move[];
@@ -46,11 +46,22 @@ export default function MoveHistory({
   const { isMobile } = useBreakpoints();
   const [expanded, setExpanded] = useState(!compact);
 
-  // Convert Diamond position to algebraic notation
-  const positionToAlgebraic = (position: DiamondPosition): string => {
-    return (
-      diamondCoords.toAlgebraic(position) || `(${position.x},${position.y})`
-    );
+  // Convert Chess position to algebraic notation (e.g., a1, e4, h8)
+  const positionToAlgebraic = (position: ChessPosition): string => {
+    const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    const ranks = ['1', '2', '3', '4', '5', '6', '7', '8'];
+
+    if (
+      position.file >= 0 &&
+      position.file < 8 &&
+      position.rank >= 0 &&
+      position.rank < 8
+    ) {
+      return `${files[position.file]}${ranks[position.rank]}`;
+    }
+
+    // Fallback for invalid positions
+    return `(${position.file},${position.rank})`;
   };
 
   // Generate move notation

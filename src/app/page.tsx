@@ -32,7 +32,7 @@ import { useState } from 'react';
 export default function HomePage() {
   const { user, isAuthenticated, isLoading, signIn } = useAuth();
   const {
-    matches: userMatchesResult,
+    matches: userMatches,
     isLoading: matchesLoading,
     refresh,
   } = useUserMatches();
@@ -43,11 +43,6 @@ export default function HomePage() {
     message: string;
     severity: 'success' | 'error';
   } | null>(null);
-
-  // Extract matches array from the result (with type safety)
-  const userMatches = (userMatchesResult as any)?.success
-    ? (userMatchesResult as any).matches
-    : [];
 
   const handleSignIn = () => {
     signIn('discord');

@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { boardSetup } from '@/lib/game/boardSetup';
-import { diamondCoords } from '@/lib/game/coordinates';
+import { chessCoords } from '@/lib/game/coordinates';
 import type {
   BoardState,
   Move,
@@ -347,8 +347,8 @@ export async function makeMove(
     const board: BoardState = new Map(boardEntries);
 
     // Basic move validation
-    const fromKey = diamondCoords.positionToKey(move.from);
-    const toKey = diamondCoords.positionToKey(move.to);
+    const fromKey = chessCoords.positionToKey(move.from);
+    const toKey = chessCoords.positionToKey(move.to);
     const piece = board.get(fromKey);
 
     if (!piece) {
@@ -368,7 +368,7 @@ export async function makeMove(
     const enhancedMove = {
       ...move,
       piece,
-      moveNotation: `${piece.type}${diamondCoords.positionToKey(move.from)}-${diamondCoords.positionToKey(move.to)}`,
+      moveNotation: `${piece.type}${chessCoords.positionToKey(move.from)}-${chessCoords.positionToKey(move.to)}`,
     };
     moveHistory.push(enhancedMove);
 

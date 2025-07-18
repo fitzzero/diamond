@@ -4,10 +4,9 @@ import {
   PieceColor,
   GameState,
   Piece,
-  StandardPosition,
-  DiamondPosition,
+  ChessPosition,
 } from '@/types/game';
-import { diamondCoords } from './coordinates';
+import { chessCoords } from './coordinates';
 import { pieceMovement } from './pieceMovement';
 import { boardSetup } from './boardSetup';
 
@@ -25,12 +24,12 @@ export interface MoveValidator {
   isStalemate(gameState: GameState): boolean;
 }
 
-class DiamondMoveValidator implements MoveValidator {
+class StandardMoveValidator implements MoveValidator {
   validateMove(gameState: GameState, move: Move): MoveValidationResult {
     const { board, currentTurn } = gameState;
 
     // Check if it's the correct player's turn
-    const fromKey = diamondCoords.positionToKey(move.from);
+    const fromKey = chessCoords.positionToKey(move.from);
     const piece = board.get(fromKey);
 
     if (!piece) {
@@ -42,18 +41,15 @@ class DiamondMoveValidator implements MoveValidator {
     }
 
     // Check if the move is legal for this piece type
-    const fromDiamond = move.from;
-    const toDiamond = move.to;
-
-    const legalMoves = pieceMovement.getPossibleMoves(
+    const possibleMoves = pieceMovement.getPossibleMoves(
       piece,
-      fromDiamond,
+      move.from,
       board
     );
 
-    const isLegalMove = legalMoves.some(
-      (legalMove: DiamondPosition) =>
-        legalMove.x === toDiamond.x && legalMove.y === toDiamond.y
+    const isLegalMove = possibleMoves.some(
+      (legalMove: ChessPosition) =>
+        legalMove.file === move.to.file && legalMove.rank === move.to.rank
     );
 
     if (!isLegalMove) {
@@ -62,7 +58,7 @@ class DiamondMoveValidator implements MoveValidator {
 
     // Create a copy of the board with the move executed
     const newBoard = new Map(board);
-    const toKey = diamondCoords.positionToKey(toDiamond);
+    const toKey = chessCoords.positionToKey(move.to);
     newBoard.delete(fromKey);
     newBoard.set(toKey, piece);
 
@@ -86,18 +82,18 @@ class DiamondMoveValidator implements MoveValidator {
     // Check if any opponent piece can attack the king
     for (const [positionKey, piece] of board.entries()) {
       if (piece.color === opponentColor) {
-        const piecePosition = diamondCoords.keyToPosition(positionKey);
+        const piecePosition = chessCoords.keyToPosition(positionKey);
 
-        const legalMoves = pieceMovement.getPossibleMoves(
+        const possibleMoves = pieceMovement.getPossibleMoves(
           piece,
           piecePosition,
           board
         );
 
         if (
-          legalMoves.some(
-            (move: DiamondPosition) =>
-              move.x === kingPosition.x && move.y === kingPosition.y
+          possibleMoves.some(
+            (move: ChessPosition) =>
+              move.file === kingPosition.file && move.rank === kingPosition.rank
           )
         ) {
           return true;
@@ -113,25 +109,25 @@ class DiamondMoveValidator implements MoveValidator {
 
     for (const [positionKey, piece] of board.entries()) {
       if (piece.color === color) {
-        const fromDiamond = diamondCoords.keyToPosition(positionKey);
+        const fromPosition = chessCoords.keyToPosition(positionKey);
 
         const possibleMoves = pieceMovement.getPossibleMoves(
           piece,
-          fromDiamond,
+          fromPosition,
           board
         );
 
-        for (const toDiamond of possibleMoves) {
+        for (const toPosition of possibleMoves) {
           const move: Move = {
-            from: fromDiamond,
-            to: toDiamond,
+            from: fromPosition,
+            to: toPosition,
             piece: piece,
           };
 
           // Test if this move would put the king in check
           const testBoard = new Map(board);
-          const fromKey = diamondCoords.positionToKey(fromDiamond);
-          const toKey = diamondCoords.positionToKey(toDiamond);
+          const fromKey = chessCoords.positionToKey(fromPosition);
+          const toKey = chessCoords.positionToKey(toPosition);
           testBoard.delete(fromKey);
           testBoard.set(toKey, piece);
 
@@ -172,4 +168,4 @@ class DiamondMoveValidator implements MoveValidator {
   }
 }
 
-export const moveValidator = new DiamondMoveValidator();
+export const moveValidator = new StandardMoveValidator();
