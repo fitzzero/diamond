@@ -24,6 +24,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUserMatches } from '@/hooks/useGame';
 import { MainLayout } from '@/components/layout';
 import { createMatch } from '@/lib/actions/gameActions';
+import { theme } from '@/lib/theme';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -118,7 +119,7 @@ export default function HomePage() {
                 sx={{
                   mb: 2,
                   fontSize: { xs: '2.5rem', md: '3.5rem' }, // Responsive font size
-                  background: 'linear-gradient(45deg, #f5f5dc, #cd853f)',
+                  background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
                   backgroundClip: 'text',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
@@ -152,10 +153,10 @@ export default function HomePage() {
                 px: 4,
                 py: 1.5,
                 fontSize: '1.1rem',
-                background: 'linear-gradient(45deg, #f5f5dc, #cd853f)',
-                color: '#1a1a1a',
+                background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                color: theme.palette.background.default,
                 '&:hover': {
-                  background: 'linear-gradient(45deg, #fffef7, #deb887)',
+                  background: `linear-gradient(45deg, ${theme.palette.primary.light}, ${theme.palette.secondary.light})`,
                 },
                 mb: 6,
               }}
@@ -247,14 +248,14 @@ export default function HomePage() {
                 px: 4,
                 py: 1.5,
                 fontSize: '1.1rem',
-                background: 'linear-gradient(45deg, #f5f5dc, #cd853f)',
-                color: '#1a1a1a',
+                background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                color: theme.palette.background.default,
                 '&:hover': {
-                  background: 'linear-gradient(45deg, #fffef7, #deb887)',
+                  background: `linear-gradient(45deg, ${theme.palette.primary.light}, ${theme.palette.secondary.light})`,
                 },
                 '&:disabled': {
-                  background: 'rgba(245, 245, 220, 0.5)',
-                  color: 'rgba(26, 26, 26, 0.5)',
+                  background: `rgba(255, 0, 128, 0.3)`,
+                  color: `rgba(255, 255, 255, 0.5)`,
                 },
               }}
             >

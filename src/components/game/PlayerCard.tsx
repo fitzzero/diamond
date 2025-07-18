@@ -33,12 +33,12 @@ export default function PlayerCard({
   boardSize,
 }: PlayerCardProps) {
   const { isMobile } = useBreakpoints();
-  const xDistance = isMobile ? '80px' : '15%';
-  const yDistance = isMobile ? '80px' : '15%';
+  const xDistance = isMobile ? '100px' : '10%';
+  const yDistance = isMobile ? '100px' : '20%';
   const positioning: any = {
     position: 'absolute',
-    top: position === 'top-left' ? xDistance : undefined,
-    left: position === 'top-left' ? yDistance : undefined,
+    top: position === 'top-left' ? yDistance : undefined,
+    left: position === 'top-left' ? xDistance : undefined,
     right: position === 'top-left' ? undefined : xDistance,
     bottom: position === 'top-left' ? undefined : yDistance,
   };
@@ -96,7 +96,6 @@ export default function PlayerCard({
           }}
         >
           {player.name || 'Anonymous'}
-          {isCurrentUser && ' (You)'}
         </Typography>
         <Stack direction="row" spacing={1} alignItems="center">
           <Box

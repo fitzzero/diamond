@@ -220,7 +220,7 @@ export default function DiamondBoard({
   }, []);
 
   // Calculate board dimensions with better mobile sizing
-  const squareSize = isMobile ? 36 : 64; // Slightly larger for better touch targets
+  const squareSize = isMobile ? 36 : 60; // Slightly larger for better touch targets
   const boardSize = squareSize * 15; // Enough space for the diamond
   const pieceSize = isMobile ? 28 : 36; // Optimized piece sizing
 
@@ -313,7 +313,8 @@ export default function DiamondBoard({
       sx={{
         position: 'relative',
         marginLeft: `calc(-1 * (${boardSize}px + 32px - ${isMobile ? '100vw' : '850px'}) / 2)`,
-        marginTop: isMobile ? '-80px' : `-${boardSize - 850}px`,
+        marginTop: isMobile ? '-80px' : `-${boardSize - 800}px`,
+        marginBottom: isMobile ? '-80px' : `-${boardSize - 800}px`,
         width: `calc(${boardSize}px)`,
         height: boardSize,
         overflow: 'visible', // Allow player cards to extend outside

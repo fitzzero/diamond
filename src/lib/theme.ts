@@ -7,36 +7,47 @@ const roboto = Roboto({
   display: 'swap',
 });
 
-// Chess-inspired color palette
+// Vaporwave/Synthwave color palette
 export const theme = createTheme({
   palette: {
     mode: 'dark',
     primary: {
-      main: '#f5f5dc', // Cream (light squares)
-      dark: '#8b4513', // Saddle brown (dark squares)
-      light: '#fffef7', // Off-white
+      main: '#ff0080', // Hot pink/magenta
+      dark: '#cc0066', // Darker pink
+      light: '#ff4da6', // Lighter pink
     },
     secondary: {
-      main: '#cd853f', // Peru (wood board)
-      dark: '#a0522d', // Sienna
-      light: '#deb887', // Burlywood
+      main: '#00ffff', // Cyan
+      dark: '#00cccc', // Darker cyan
+      light: '#4dffff', // Lighter cyan
     },
     background: {
-      default: '#1a1a1a', // Dark background
-      paper: '#2d2d2d', // Card/surface color
+      default: '#0a0a0f', // Very dark purple-black
+      paper: '#1a1a2e', // Dark purple surface
     },
     text: {
-      primary: '#f5f5dc', // Cream text
-      secondary: '#cd853f', // Peru text
+      primary: '#ffffff', // Pure white text
+      secondary: '#00ffff', // Cyan text
     },
     success: {
-      main: '#4caf50', // Green for valid moves
+      main: '#00ff41', // Neon green
+      dark: '#00cc34',
+      light: '#4dff6d',
     },
     warning: {
-      main: '#ff9800', // Orange for warnings
+      main: '#ffaa00', // Electric orange
+      dark: '#cc8800',
+      light: '#ffbb4d',
     },
     error: {
-      main: '#f44336', // Red for invalid moves
+      main: '#ff0040', // Electric red
+      dark: '#cc0033',
+      light: '#ff4d73',
+    },
+    info: {
+      main: '#8000ff', // Electric purple
+      dark: '#6600cc',
+      light: '#a64dff',
     },
   },
   typography: {
@@ -95,7 +106,7 @@ export const theme = createTheme({
         contained: {
           boxShadow: 'none',
           '&:hover': {
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            boxShadow: '0 2px 8px rgba(255, 0, 128, 0.3)',
           },
         },
       },
@@ -103,16 +114,16 @@ export const theme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          border: '1px solid rgba(245, 245, 220, 0.1)',
+          boxShadow: '0 2px 8px rgba(255, 0, 128, 0.1)',
+          border: '1px solid rgba(255, 0, 128, 0.2)',
         },
       },
     },
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: '#2d2d2d',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+          backgroundColor: '#1a1a2e',
+          boxShadow: '0 1px 8px rgba(255, 0, 128, 0.2)',
         },
       },
     },
@@ -126,4 +137,4 @@ export const theme = createTheme({
   },
 });
 
-export default theme; 
+export default theme;

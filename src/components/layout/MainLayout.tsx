@@ -17,6 +17,7 @@ import {
   ListItemIcon,
   ListItemText,
   Chip,
+  useTheme,
 } from '@mui/material';
 import {
   DiamondOutlined,
@@ -46,6 +47,7 @@ export default function MainLayout({
   const { user, isAuthenticated, signOut } = useAuth();
   const router = useRouter();
   const { isMobile } = useBreakpoints();
+  const theme = useTheme();
 
   const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(
     null
@@ -116,7 +118,7 @@ export default function MainLayout({
                 component="div"
                 sx={{
                   fontWeight: 700,
-                  background: 'linear-gradient(45deg, #f5f5dc, #cd853f)',
+                  background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
                   backgroundClip: 'text',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
@@ -140,7 +142,7 @@ export default function MainLayout({
                       sx={{
                         color: 'text.primary',
                         '&:hover': {
-                          backgroundColor: 'rgba(245, 245, 220, 0.1)',
+                          backgroundColor: 'rgba(255, 0, 128, 0.1)',
                         },
                       }}
                     >
@@ -248,10 +250,10 @@ export default function MainLayout({
                 startIcon={<Person />}
                 onClick={() => router.push('/')}
                 sx={{
-                  background: 'linear-gradient(45deg, #f5f5dc, #cd853f)',
-                  color: '#1a1a1a',
+                  background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                  color: theme.palette.background.default,
                   '&:hover': {
-                    background: 'linear-gradient(45deg, #fffef7, #deb887)',
+                    background: `linear-gradient(45deg, ${theme.palette.primary.light}, ${theme.palette.secondary.light})`,
                   },
                 }}
               >
@@ -289,7 +291,7 @@ export default function MainLayout({
                         justifyContent: 'flex-start',
                         color: 'text.primary',
                         '&:hover': {
-                          backgroundColor: 'rgba(245, 245, 220, 0.1)',
+                          backgroundColor: 'rgba(255, 0, 128, 0.1)',
                         },
                       }}
                       onClick={() => setMobileMenuOpen(false)}
@@ -311,7 +313,7 @@ export default function MainLayout({
           flexGrow: 1,
           pt: '80px',
           ...(showBackground && {
-            background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
+            background: `linear-gradient(135deg, ${theme.palette.background.default} 0%, ${theme.palette.background.paper} 100%)`,
             minHeight: '100vh',
           }),
         }}
