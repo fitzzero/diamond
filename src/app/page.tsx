@@ -101,10 +101,12 @@ export default function HomePage() {
             }}
           >
             {/* Hero Section */}
-            <Box sx={{ mb: 6 }}>
+            <Box sx={{ mb: { xs: 4, md: 6 } }}>
+              {' '}
+              {/* Less spacing on mobile */}
               <DiamondOutlined
                 sx={{
-                  fontSize: 120,
+                  fontSize: { xs: 80, md: 120 }, // Smaller on mobile
                   color: 'primary.main',
                   mb: 2,
                   transform: 'rotate(45deg)',
@@ -115,6 +117,7 @@ export default function HomePage() {
                 component="h1"
                 sx={{
                   mb: 2,
+                  fontSize: { xs: '2.5rem', md: '3.5rem' }, // Responsive font size
                   background: 'linear-gradient(45deg, #f5f5dc, #cd853f)',
                   backgroundClip: 'text',
                   WebkitBackgroundClip: 'text',
@@ -127,7 +130,12 @@ export default function HomePage() {
                 variant="h5"
                 component="h2"
                 color="text.secondary"
-                sx={{ mb: 4, maxWidth: 600 }}
+                sx={{
+                  mb: 4,
+                  maxWidth: 600,
+                  fontSize: { xs: '1.2rem', md: '1.5rem' }, // Responsive subtitle
+                  px: { xs: 2, md: 0 }, // Side padding on mobile
+                }}
               >
                 Experience chess like never before on a rotated board with
                 unique pawn mechanics

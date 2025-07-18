@@ -18,6 +18,8 @@ import {
   Collapse,
   Paper,
   Stack,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   History,
@@ -42,6 +44,8 @@ export default function MoveHistory({
   onMoveClick,
   compact = false,
 }: MoveHistoryProps) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [expanded, setExpanded] = useState(!compact);
 
   // Convert Diamond position to algebraic notation
@@ -136,7 +140,14 @@ export default function MoveHistory({
         />
 
         <Collapse in={expanded}>
-          <CardContent sx={{ pt: 0, maxHeight: 300, overflow: 'auto' }}>
+          <CardContent
+            sx={{
+              pt: 0,
+              maxHeight: isMobile ? 200 : 300,
+              overflow: 'auto',
+              px: { xs: 1, md: 2 }, // Less padding on mobile
+            }}
+          >
             {gameStatus && (
               <Box sx={{ mb: 2 }}>
                 <Chip

@@ -269,13 +269,14 @@ export default function MatchPage() {
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' },
-            gap: 4,
+            gridTemplateColumns: { xs: '1fr', lg: '1.5fr 1fr' },
+            gap: { xs: 2, md: 4 },
+            minHeight: { xs: 'auto', md: '70vh' }, // Better mobile height management
           }}
         >
           {/* Game Board Section */}
-          <Stack spacing={3}>
-            <Paper sx={{ p: 3 }}>
+          <Stack spacing={{ xs: 2, md: 3 }}>
+            <Paper sx={{ p: { xs: 2, md: 3 } }}>
               <Typography variant="h6" gutterBottom>
                 Game Board
               </Typography>
@@ -369,7 +370,14 @@ export default function MatchPage() {
           </Stack>
 
           {/* Match Info Sidebar */}
-          <Stack spacing={3}>
+          <Stack
+            spacing={{ xs: 2, md: 3 }}
+            sx={{
+              order: { xs: -1, lg: 0 }, // Move sidebar above board on mobile
+              maxHeight: { xs: '50vh', lg: 'auto' }, // Limit height on mobile
+              overflow: { xs: 'auto', lg: 'visible' },
+            }}
+          >
             {/* Move History */}
             {game && (
               <MoveHistory moves={game.moveHistory || []} compact={true} />

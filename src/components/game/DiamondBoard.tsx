@@ -42,6 +42,7 @@ interface SquareProps {
   top: number;
   readOnly: boolean;
   currentTurn: PieceColor;
+  isMobile: boolean;
 }
 
 function ChessSquare({
@@ -62,6 +63,7 @@ function ChessSquare({
   top,
   readOnly,
   currentTurn,
+  isMobile,
 }: SquareProps) {
   const theme = useTheme();
 
@@ -133,6 +135,9 @@ function ChessSquare({
         border: '1px solid',
         borderColor: 'rgba(0, 0, 0, 0.2)',
         cursor: canDragPiece ? 'grab' : isValidMove ? 'pointer' : 'default',
+        // Enhanced touch targets for mobile
+        minHeight: isMobile ? 44 : size,
+        minWidth: isMobile ? 44 : size,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -166,7 +171,7 @@ function ChessSquare({
         <Box
           sx={{
             transform: 'rotate(-45deg)', // Counter-rotate the piece
-            fontSize: size * 0.6,
+            fontSize: isMobile ? Math.max(size * 0.7, 20) : size * 0.6, // Larger pieces on mobile
             color: piece.color === 'WHITE' ? '#ffffff' : '#1a1a1a',
             filter: 'drop-shadow(1px 1px 2px rgba(0,0,0,0.8))',
             display: 'flex',
@@ -209,9 +214,10 @@ export default function DiamondBoard({
     return diamondCoords.getAllValidPositions();
   }, []);
 
-  // Calculate board dimensions
-  const squareSize = isMobile ? 32 : 48;
+  // Calculate board dimensions with better mobile sizing
+  const squareSize = isMobile ? 36 : 48; // Slightly larger for better touch targets
   const boardSize = squareSize * 15; // Enough space for the diamond
+  const pieceSize = isMobile ? 28 : 36; // Optimized piece sizing
 
   // Helper function to check if a square is light or dark
   const isLightSquare = (pos: DiamondPosition): boolean => {
@@ -361,6 +367,7 @@ export default function DiamondBoard({
               top={screenPos.top}
               readOnly={readOnly}
               currentTurn={currentTurn}
+              isMobile={isMobile}
             />
           );
         })}
