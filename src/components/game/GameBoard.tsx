@@ -206,7 +206,7 @@ export default function GameBoard({
                 ? 'error'
                 : 'info'
           }
-          sx={{ width: '100%', maxWidth: 600 }}
+          sx={{ width: '100%' }}
         >
           <Typography variant="h6">{statusMessage}</Typography>
         </Alert>

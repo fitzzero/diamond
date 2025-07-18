@@ -20,7 +20,22 @@ This is a Diamond Chess project built with Next.js 14 App Router, Material-UI v5
 - Follow MUI's composition patterns and API design principles
 - Prefer MUI's built-in variants and color schemes
 
-## Styling & Theming
+## Layout & Styling Rules
+
+### Container Usage
+
+- **NEVER hard-code max widths for standard page content**
+- MainLayout wraps all children in `<Container>` - use this consistently
+- Only override container behavior for special full-width scenarios (like game boards)
+- Remove any hardcoded widths like `maxWidth: '800px'` - let Container handle responsive layout
+
+### Theme-First Approach
+
+- **Material-UI theme and components should do the heavy lifting**
+- If you need `sx={{}}` on every component, you're probably doing it wrong
+- Define reusable styles, spacing, and variants in `src/lib/theme.ts`
+- Use theme breakpoints, palette, spacing, and typography consistently
+- Minimize custom `sx` props - leverage MUI's built-in design system
 
 ### Global Styles
 

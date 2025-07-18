@@ -132,9 +132,8 @@ export default function HomePage() {
                 color="text.secondary"
                 sx={{
                   mb: 4,
-                  maxWidth: 600,
-                  fontSize: { xs: '1.2rem', md: '1.5rem' }, // Responsive subtitle
-                  px: { xs: 2, md: 0 }, // Side padding on mobile
+                  fontSize: { xs: '1.2rem', md: '1.5rem' },
+                  px: { xs: 2, md: 0 },
                 }}
               >
                 Experience chess like never before on a rotated board with
@@ -170,7 +169,6 @@ export default function HomePage() {
                 backgroundColor: 'background.paper',
                 borderRadius: 2,
                 p: 4,
-                maxWidth: 800,
                 border: '1px solid',
                 borderColor: 'primary.main',
                 borderOpacity: 0.2,
@@ -221,7 +219,7 @@ export default function HomePage() {
 
   return (
     <MainLayout>
-      <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Box sx={{ py: 4 }}>
         {/* Welcome Section */}
         <Box sx={{ mb: 4, textAlign: 'center' }}>
           <Typography variant="h4" gutterBottom>
@@ -359,7 +357,7 @@ export default function HomePage() {
             </Box>
           )}
         </Box>
-      </Container>
+      </Box>
     </MainLayout>
   );
 }

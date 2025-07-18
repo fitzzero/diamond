@@ -18,8 +18,6 @@ import {
   Collapse,
   Paper,
   Stack,
-  useTheme,
-  useMediaQuery,
 } from '@mui/material';
 import {
   History,
@@ -28,6 +26,7 @@ import {
   ChevronRight,
   Timeline,
 } from '@mui/icons-material';
+import { useBreakpoints } from '@/hooks';
 import type { Move, DiamondPosition } from '@/types/game';
 import { diamondCoords } from '@/lib/game/coordinates';
 
@@ -44,8 +43,7 @@ export default function MoveHistory({
   onMoveClick,
   compact = false,
 }: MoveHistoryProps) {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { isMobile } = useBreakpoints();
   const [expanded, setExpanded] = useState(!compact);
 
   // Convert Diamond position to algebraic notation

@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import { Box, Typography, useTheme, useMediaQuery } from '@mui/material';
+import { Box, useTheme } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { CHESS_ICONS } from '@/lib/fontawesome';
+import { useBreakpoints } from '@/hooks';
 import type {
   BoardState,
   DiamondPosition,
@@ -12,6 +13,7 @@ import type {
 } from '@/types/game';
 import { diamondCoords } from '@/lib/game/coordinates';
 import { pieceMovement } from '@/lib/game/pieceMovement';
+import PlayerCard from './PlayerCard';
 
 interface DiamondBoardProps {
   boardState: BoardState;
@@ -22,6 +24,19 @@ interface DiamondBoardProps {
   selectedSquare?: DiamondPosition | null;
   validMoves?: DiamondPosition[];
   readOnly?: boolean;
+  // Player data for the cards
+  player1?: {
+    id: string;
+    name: string | null;
+    image: string | null;
+  } | null;
+  player2?: {
+    id: string;
+    name: string | null;
+    image: string | null;
+  } | null;
+  currentUserId?: string;
+  matchStatus?: string;
 }
 
 interface SquareProps {
@@ -99,87 +114,74 @@ function ChessSquare({
     }
   };
 
-  const handleDragLeave = () => {
-    // Reset drag over state when leaving
-  };
-
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    if (isValidMove) {
-      onDrop(position);
-    }
-  };
-
-  const getPieceIcon = () => {
-    if (!piece) return null;
-    const key = `${piece.color}_${piece.type}` as keyof typeof CHESS_ICONS;
-    return CHESS_ICONS[key];
+    onDrop(position);
   };
 
   return (
     <Box
       onClick={onClick}
-      draggable={canDragPiece}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
       onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       sx={{
         position: 'absolute',
-        left,
-        top,
+        left: left,
+        top: top,
         width: size,
         height: size,
         backgroundColor: getSquareColor(),
-        border: '1px solid',
-        borderColor: 'rgba(0, 0, 0, 0.2)',
-        cursor: canDragPiece ? 'grab' : isValidMove ? 'pointer' : 'default',
-        // Enhanced touch targets for mobile
-        minHeight: isMobile ? 44 : size,
-        minWidth: isMobile ? 44 : size,
+        border: '1px solid rgba(0,0,0,0.1)',
+        cursor: readOnly ? 'default' : 'pointer',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        transition: 'all 0.2s ease-in-out',
-        transform: 'rotate(45deg)',
+        transition: 'background-color 0.2s ease',
+        transform: 'rotate(45deg)', // Diamond rotation
         transformOrigin: 'center',
-        '&:hover': {
-          opacity: 0.8,
-          transform: 'rotate(45deg) scale(1.05)',
-        },
-        '&:active': canDragPiece
+        '&:hover': !readOnly
           ? {
-              cursor: 'grabbing',
+              backgroundColor: theme.palette.action.hover,
             }
           : {},
-        ...(isValidMove && {
-          '&::after': {
-            content: '""',
-            position: 'absolute',
-            width: '50%',
-            height: '50%',
-            backgroundColor: theme.palette.success.main,
-            borderRadius: '50%',
-            opacity: 0.7,
-            pointerEvents: 'none',
-          },
-        }),
       }}
     >
       {piece && (
         <Box
+          draggable={canDragPiece}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
           sx={{
-            transform: 'rotate(-45deg)', // Counter-rotate the piece
-            fontSize: isMobile ? Math.max(size * 0.7, 20) : size * 0.6, // Larger pieces on mobile
-            color: piece.color === 'WHITE' ? '#ffffff' : '#1a1a1a',
-            filter: 'drop-shadow(1px 1px 2px rgba(0,0,0,0.8))',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            transform: 'rotate(-45deg)', // Counter-rotate the piece to appear upright
+            fontSize: isMobile ? '1.5rem' : '1.8rem',
+            color: piece.color === 'WHITE' ? 'white' : 'black',
+            textShadow:
+              piece.color === 'WHITE'
+                ? '1px 1px 2px rgba(0,0,0,0.7)'
+                : '1px 1px 2px rgba(255,255,255,0.5)',
+            cursor: canDragPiece ? 'grab' : 'default',
+            userSelect: 'none',
+            transition: 'transform 0.1s ease',
+            '&:hover': canDragPiece
+              ? {
+                  transform: 'rotate(-45deg) scale(1.1)',
+                }
+              : {},
+            '&:active': canDragPiece
+              ? {
+                  cursor: 'grabbing',
+                  transform: 'rotate(-45deg) scale(0.95)',
+                }
+              : {},
           }}
         >
-          <FontAwesomeIcon icon={getPieceIcon()!} />
+          <FontAwesomeIcon
+            icon={
+              CHESS_ICONS[
+                `${piece.color}_${piece.type}` as keyof typeof CHESS_ICONS
+              ]
+            }
+          />
         </Box>
       )}
     </Box>
@@ -192,12 +194,15 @@ export default function DiamondBoard({
   onSquareClick,
   onPieceMove,
   highlightedSquares = [],
-  selectedSquare = null,
+  selectedSquare,
   validMoves = [],
   readOnly = false,
+  player1,
+  player2,
+  currentUserId,
+  matchStatus,
 }: DiamondBoardProps) {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { isMobile } = useBreakpoints();
 
   // Drag state management
   const [draggedPiece, setDraggedPiece] = useState<{
@@ -215,7 +220,7 @@ export default function DiamondBoard({
   }, []);
 
   // Calculate board dimensions with better mobile sizing
-  const squareSize = isMobile ? 36 : 48; // Slightly larger for better touch targets
+  const squareSize = isMobile ? 36 : 64; // Slightly larger for better touch targets
   const boardSize = squareSize * 15; // Enough space for the diamond
   const pieceSize = isMobile ? 28 : 36; // Optimized piece sizing
 
@@ -297,103 +302,86 @@ export default function DiamondBoard({
     [draggedPiece, onPieceMove, validMoves]
   );
 
+  // Calculate player turn states
+  const isPlayer1 = player1 && currentUserId === player1.id;
+  const isPlayer2 = player2 && currentUserId === player2.id;
+  const whitePlayerTurn = currentTurn === 'WHITE';
+  const blackPlayerTurn = currentTurn === 'BLACK';
+
   return (
     <Box
       sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 2,
+        position: 'relative',
+        marginLeft: `calc(-1 * (${boardSize}px + 32px - ${isMobile ? '100vw' : '850px'}) / 2)`,
+        marginTop: isMobile ? '-80px' : `-${boardSize - 850}px`,
+        width: `calc(${boardSize}px)`,
+        height: boardSize,
+        overflow: 'visible', // Allow player cards to extend outside
       }}
     >
-      {/* Turn Indicator */}
-      <Typography
-        variant="h6"
-        sx={{
-          color:
-            currentTurn === 'WHITE'
-              ? theme.palette.primary.main
-              : theme.palette.text.secondary,
-          fontWeight: 700,
-        }}
-      >
-        {currentTurn === 'WHITE' ? '⚪ White to Move' : '⚫ Black to Move'}
-      </Typography>
+      {/* Player Cards positioned relative to exact board dimensions */}
+      {matchStatus === 'IN_PROGRESS' && (
+        <>
+          {/* Black Player - Top Left relative to board */}
+          <PlayerCard
+            player={player2 || null}
+            color="BLACK"
+            isMyTurn={blackPlayerTurn && !!isPlayer2}
+            isCurrentUser={!!isPlayer2}
+            position="top-left"
+            boardSize={boardSize}
+          />
 
-      {/* Board Container */}
-      <Box
-        sx={{
-          position: 'relative',
-          width: boardSize,
-          height: boardSize,
-          border: '2px solid',
-          borderColor: 'primary.main',
-          borderRadius: 2,
-          background: 'linear-gradient(45deg, #2d2d2d 0%, #1a1a1a 100%)',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Render all squares */}
-        {allPositions.map(position => {
-          const screenPos = getScreenPosition(position);
-          const piece = boardState.get(diamondCoords.positionToKey(position));
-          const isSelected = selectedSquare
-            ? selectedSquare.x === position.x && selectedSquare.y === position.y
-            : false;
-          const isValidMove = isPositionInArray(position, localValidMoves);
-          const isHighlighted = isPositionInArray(position, highlightedSquares);
-          const isDragOver = dragOverPosition
-            ? dragOverPosition.x === position.x &&
-              dragOverPosition.y === position.y
-            : false;
-
-          return (
-            <ChessSquare
-              key={diamondCoords.positionToKey(position)}
-              position={position}
-              piece={piece}
-              isLight={isLightSquare(position)}
-              isSelected={isSelected}
-              isValidMove={isValidMove}
-              isHighlighted={isHighlighted}
-              isDragOver={isDragOver}
-              onClick={() => handleSquareClick(position)}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              size={squareSize}
-              left={screenPos.left}
-              top={screenPos.top}
-              readOnly={readOnly}
-              currentTurn={currentTurn}
-              isMobile={isMobile}
-            />
-          );
-        })}
-
-        {/* Coordinate Labels (Optional - can be toggled) */}
-        <Box
-          sx={{
-            position: 'absolute',
-            bottom: 8,
-            right: 8,
-            color: 'text.secondary',
-            fontSize: '0.75rem',
-            opacity: 0.6,
-          }}
-        >
-          Diamond Chess
-        </Box>
-      </Box>
-
-      {/* Game Status */}
-      {selectedSquare && (
-        <Typography variant="body2" color="text.secondary">
-          Selected: ({selectedSquare.x}, {selectedSquare.y})
-          {validMoves.length > 0 && ` • ${validMoves.length} valid moves`}
-        </Typography>
+          {/* White Player - Bottom Right relative to board */}
+          <PlayerCard
+            player={player1 || null}
+            color="WHITE"
+            isMyTurn={whitePlayerTurn && !!isPlayer1}
+            isCurrentUser={!!isPlayer1}
+            position="bottom-right"
+            boardSize={boardSize}
+          />
+        </>
       )}
+
+      {/* Render all squares */}
+      {allPositions.map(position => {
+        const screenPos = getScreenPosition(position);
+        const piece = boardState.get(diamondCoords.positionToKey(position));
+        const isSelected = selectedSquare
+          ? selectedSquare.x === position.x && selectedSquare.y === position.y
+          : false;
+        const isValidMove = isPositionInArray(position, localValidMoves);
+        const isHighlighted = isPositionInArray(position, highlightedSquares);
+        const isDragOver = dragOverPosition
+          ? dragOverPosition.x === position.x &&
+            dragOverPosition.y === position.y
+          : false;
+
+        return (
+          <ChessSquare
+            key={diamondCoords.positionToKey(position)}
+            position={position}
+            piece={piece}
+            isLight={isLightSquare(position)}
+            isSelected={isSelected}
+            isValidMove={isValidMove}
+            isHighlighted={isHighlighted}
+            isDragOver={isDragOver}
+            onClick={() => handleSquareClick(position)}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            size={squareSize}
+            left={screenPos.left}
+            top={screenPos.top}
+            readOnly={readOnly}
+            currentTurn={currentTurn}
+            isMobile={isMobile}
+          />
+        );
+      })}
     </Box>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Box, Card, CardContent, Typography, Button } from '@mui/material';
+import { MainLayout } from '@/components/layout';
 
 export default function AccelerateTestPage() {
   const [testResults, setTestResults] = useState<any>(null);
@@ -59,7 +60,7 @@ export default function AccelerateTestPage() {
   };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
+    <MainLayout title="Prisma Accelerate Test">
       <Typography variant="h4" gutterBottom>
         🚀 Prisma Accelerate Test
       </Typography>
@@ -168,6 +169,6 @@ export default function AccelerateTestPage() {
           </Typography>
         </CardContent>
       </Card>
-    </Box>
+    </MainLayout>
   );
 }

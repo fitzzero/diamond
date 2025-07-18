@@ -55,7 +55,7 @@ export default function BoardTestPage() {
 
   return (
     <MainLayout title="Diamond Chess Board Test">
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box sx={{ py: 4 }}>
         <Box sx={{ textAlign: 'center', mb: 4 }}>
           <Typography variant="h5" gutterBottom>
             🔬 Testing the Diamond Chess Board
@@ -210,7 +210,7 @@ export default function BoardTestPage() {
             ))}
           </Box>
         </Box>
-      </Container>
+      </Box>
     </MainLayout>
   );
 }

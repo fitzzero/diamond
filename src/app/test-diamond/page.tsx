@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Container, Typography, Paper, Box, Button } from '@mui/material';
+import { Typography, Paper, Box, Button } from '@mui/material';
+import { MainLayout } from '@/components/layout';
 import {
   testDiamondSystem,
   testCoordinateExamples,
@@ -52,7 +53,7 @@ export default function TestDiamondPage() {
   }, []);
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <MainLayout title="Diamond System Test">
       <Typography variant="h3" component="h1" gutterBottom align="center">
         🔬 Diamond Chess System Tests
       </Typography>
@@ -123,6 +124,6 @@ export default function TestDiamondPage() {
           </ul>
         </Typography>
       </Box>
-    </Container>
+    </MainLayout>
   );
 }

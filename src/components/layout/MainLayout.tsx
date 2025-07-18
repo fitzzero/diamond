@@ -17,8 +17,6 @@ import {
   ListItemIcon,
   ListItemText,
   Chip,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
 import {
   DiamondOutlined,
@@ -30,7 +28,7 @@ import {
   Menu as MenuIcon,
   Close,
 } from '@mui/icons-material';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth, useBreakpoints } from '@/hooks';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -47,8 +45,7 @@ export default function MainLayout({
 }: MainLayoutProps) {
   const { user, isAuthenticated, signOut } = useAuth();
   const router = useRouter();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { isMobile } = useBreakpoints();
 
   const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(
     null
@@ -83,7 +80,13 @@ export default function MainLayout({
   ];
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+      }}
+    >
       {/* Top Navigation */}
       <AppBar position="fixed" elevation={0}>
         <Container maxWidth="xl">
@@ -306,15 +309,20 @@ export default function MainLayout({
         component="main"
         sx={{
           flexGrow: 1,
-          pt: { xs: 7, sm: 8 },
+          pt: '80px',
           ...(showBackground && {
             background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
             minHeight: '100vh',
           }),
         }}
       >
-        {title && (
-          <Container maxWidth="xl" sx={{ py: 2 }}>
+        <Container
+          maxWidth="md"
+          sx={{
+            overflow: 'hidden',
+          }}
+        >
+          {title && (
             <Typography
               variant="h4"
               component="h1"
@@ -322,13 +330,14 @@ export default function MainLayout({
                 fontWeight: 700,
                 color: 'primary.main',
                 textAlign: 'center',
+                py: 2,
               }}
             >
               {title}
             </Typography>
-          </Container>
-        )}
-        {children}
+          )}
+          {children}
+        </Container>
       </Box>
     </Box>
   );

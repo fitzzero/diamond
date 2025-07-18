@@ -169,11 +169,9 @@ export default function UserProfilePage() {
   if (!isAuthenticated) {
     return (
       <MainLayout>
-        <Container maxWidth="lg" sx={{ py: 4 }}>
-          <Alert severity="warning">
-            You must be signed in to view user profiles.
-          </Alert>
-        </Container>
+        <Alert severity="warning">
+          You must be signed in to view user profiles.
+        </Alert>
       </MainLayout>
     );
   }
@@ -181,11 +179,9 @@ export default function UserProfilePage() {
   if (matchesLoading && isOwnProfile) {
     return (
       <MainLayout>
-        <Container maxWidth="lg" sx={{ py: 4 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress />
-          </Box>
-        </Container>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+          <CircularProgress />
+        </Box>
       </MainLayout>
     );
   }
@@ -197,16 +193,14 @@ export default function UserProfilePage() {
   if (!profileUser) {
     return (
       <MainLayout>
-        <Container maxWidth="lg" sx={{ py: 4 }}>
-          <Alert severity="error">User not found.</Alert>
-        </Container>
+        <Alert severity="error">User not found.</Alert>
       </MainLayout>
     );
   }
 
   return (
     <MainLayout>
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box sx={{ py: 4 }}>
         {/* Profile Header */}
         <Card sx={{ mb: 4 }}>
           <CardContent>
@@ -536,7 +530,7 @@ export default function UserProfilePage() {
             </Box>
           </TabPanel>
         </Card>
-      </Container>
+      </Box>
     </MainLayout>
   );
 }
