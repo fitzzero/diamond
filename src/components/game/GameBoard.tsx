@@ -4,13 +4,13 @@ import { useState, useCallback, useMemo } from 'react';
 import { Box, Alert, Typography, Button, Stack } from '@mui/material';
 import type {
   BoardState,
-  DiamondPosition,
+  ChessPosition,
   PieceColor,
   Move,
   GameStatus,
 } from '@/types/game';
 import { DiamondBoard } from './';
-import { diamondCoords } from '@/lib/game/coordinates';
+import { chessCoords } from '@/lib/game/coordinates';
 import { moveValidator } from '@/lib/game/moveValidation';
 
 interface GameBoardProps {
@@ -36,16 +36,14 @@ export default function GameBoard({
   isLoading = false,
   readOnly = false,
 }: GameBoardProps) {
-  const [selectedSquare, setSelectedSquare] = useState<DiamondPosition | null>(
+  const [selectedSquare, setSelectedSquare] = useState<ChessPosition | null>(
     null
   );
-  const [validMoves, setValidMoves] = useState<DiamondPosition[]>([]);
+  const [validMoves, setValidMoves] = useState<ChessPosition[]>([]);
   const [lastMove, setLastMove] = useState<Move | null>(
     moveHistory.length > 0 ? moveHistory[moveHistory.length - 1] : null
   );
   const [error, setError] = useState<string | null>(null);
-
-  // Use the imported moveValidator instance
 
   // Check if it's the current player's turn
   const isPlayerTurn = useMemo(() => {
@@ -61,12 +59,12 @@ export default function GameBoard({
 
   // Handle square selection and piece movement
   const handleSquareClick = useCallback(
-    async (position: DiamondPosition) => {
+    async (position: ChessPosition) => {
       if (readOnly || isLoading || !isPlayerTurn) return;
 
       setError(null);
 
-      const pieceKey = diamondCoords.positionToKey(position);
+      const pieceKey = chessCoords.positionToKey(position);
       const clickedPiece = boardState.get(pieceKey);
 
       // If no piece is selected
@@ -83,7 +81,8 @@ export default function GameBoard({
             );
             const pieceMoves = moves.filter(
               (move: Move) =>
-                move.from.x === position.x && move.from.y === position.y
+                move.from.file === position.file &&
+                move.from.rank === position.rank
             );
             setValidMoves(pieceMoves.map((move: Move) => move.to));
           } catch (error) {
@@ -95,7 +94,10 @@ export default function GameBoard({
       }
 
       // If clicking the same square, deselect
-      if (selectedSquare.x === position.x && selectedSquare.y === position.y) {
+      if (
+        selectedSquare.file === position.file &&
+        selectedSquare.rank === position.rank
+      ) {
         setSelectedSquare(null);
         setValidMoves([]);
         return;
@@ -110,7 +112,8 @@ export default function GameBoard({
           const moves = moveValidator.getAllLegalMoves(boardState, currentTurn);
           const pieceMoves = moves.filter(
             (move: Move) =>
-              move.from.x === position.x && move.from.y === position.y
+              move.from.file === position.file &&
+              move.from.rank === position.rank
           );
           setValidMoves(pieceMoves.map((move: Move) => move.to));
         } catch (error) {
@@ -122,7 +125,7 @@ export default function GameBoard({
 
       // Try to make a move
       const isValidMove = validMoves.some(
-        move => move.x === position.x && move.y === position.y
+        move => move.file === position.file && move.rank === position.rank
       );
 
       if (!isValidMove) {
@@ -134,7 +137,7 @@ export default function GameBoard({
         const move: Move = {
           from: selectedSquare,
           to: position,
-          piece: boardState.get(diamondCoords.positionToKey(selectedSquare))!,
+          piece: boardState.get(chessCoords.positionToKey(selectedSquare))!,
           capturedPiece: clickedPiece || undefined,
         };
 
@@ -158,7 +161,6 @@ export default function GameBoard({
       validMoves,
       boardState,
       currentTurn,
-      moveValidator,
       onMove,
     ]
   );
@@ -250,7 +252,7 @@ export default function GameBoard({
           <Typography variant="body2" color="text.secondary">
             Move {moveHistory.length} • Last:{' '}
             {lastMove
-              ? `${lastMove.piece.type} ${diamondCoords.positionToKey(lastMove.from)} → ${diamondCoords.positionToKey(lastMove.to)}`
+              ? `${lastMove.piece.type} ${chessCoords.positionToNotation(lastMove.from)} → ${chessCoords.positionToNotation(lastMove.to)}`
               : 'None'}
           </Typography>
         </Box>
@@ -260,8 +262,8 @@ export default function GameBoard({
       {process.env.NODE_ENV === 'development' && selectedSquare && (
         <Box sx={{ mt: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
           <Typography variant="caption" display="block">
-            Debug: Selected ({selectedSquare.x}, {selectedSquare.y}) • Valid
-            moves: {validMoves.length}
+            Debug: Selected ({selectedSquare.file}, {selectedSquare.rank}) •
+            Valid moves: {validMoves.length}
           </Typography>
         </Box>
       )}

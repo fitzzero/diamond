@@ -7,10 +7,12 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { boardSetup } from '@/lib/game/boardSetup';
 import { chessCoords } from '@/lib/game/coordinates';
+import { moveValidator } from '@/lib/game/moveValidation';
 import type {
   BoardState,
   Move,
   PieceColor,
+  GameState,
   EnhancedGameState,
   CreateMatchResult,
   JoinMatchResult,
@@ -376,19 +378,90 @@ export async function makeMove(
     const nextTurn: PieceColor =
       game.currentTurn === 'WHITE' ? 'BLACK' : 'WHITE';
 
-    // Save updated game state
-    const updatedGame = await prisma.game.update({
-      where: { id: gameId },
-      data: {
-        board: JSON.stringify(Array.from(board.entries())),
-        moveHistory: JSON.stringify(moveHistory),
-        currentTurn: nextTurn,
-      },
-      include: {
-        match: true,
-        whitePlayer: true,
-        blackPlayer: true,
-      },
+    // Check for endgame conditions (checkmate, stalemate)
+    const gameState: GameState = {
+      id: game.id,
+      board,
+      currentTurn: nextTurn,
+      status: 'active' as const,
+      moves: moveHistory,
+    };
+
+    let gameStatus = 'IN_PROGRESS';
+    let gameResult = null;
+    let matchWinnerId = null;
+    let completedAt = null;
+
+    // Check for checkmate
+    if (moveValidator.isCheckmate(gameState)) {
+      gameStatus = 'CHECKMATE';
+      completedAt = new Date();
+
+      // The player who just moved wins (current turn is the player who got checkmated)
+      if (nextTurn === 'WHITE') {
+        // Black wins (white is checkmated)
+        gameResult = 'BLACK_WINS';
+        matchWinnerId = game.blackPlayerId;
+      } else {
+        // White wins (black is checkmated)
+        gameResult = 'WHITE_WINS';
+        matchWinnerId = game.whitePlayerId;
+      }
+
+      console.log(
+        `🏆 Checkmate! ${gameResult === 'WHITE_WINS' ? 'White' : 'Black'} wins!`
+      );
+    }
+    // Check for stalemate
+    else if (moveValidator.isStalemate(gameState)) {
+      gameStatus = 'STALEMATE';
+      gameResult = 'DRAW';
+      completedAt = new Date();
+
+      console.log(`🤝 Stalemate! Game ends in a draw.`);
+    }
+
+    // Prepare update data
+    const gameUpdateData: any = {
+      board: JSON.stringify(Array.from(board.entries())),
+      moveHistory: JSON.stringify(moveHistory),
+      currentTurn: nextTurn,
+      status: gameStatus,
+    };
+
+    if (gameResult) {
+      gameUpdateData.result = gameResult;
+    }
+
+    if (completedAt) {
+      gameUpdateData.completedAt = completedAt;
+    }
+
+    // Update game and potentially match in a transaction
+    const updatedGame = await prisma.$transaction(async (tx: any) => {
+      // Update the game
+      const game = await tx.game.update({
+        where: { id: gameId },
+        data: gameUpdateData,
+        include: {
+          match: true,
+          whitePlayer: true,
+          blackPlayer: true,
+        },
+      });
+
+      // If there's a winner, update the match
+      if (matchWinnerId) {
+        await tx.match.update({
+          where: { id: game.matchId },
+          data: {
+            status: 'COMPLETED',
+            winnerId: matchWinnerId,
+          },
+        });
+      }
+
+      return game;
     });
 
     // Revalidate for real-time updates

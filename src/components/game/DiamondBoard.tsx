@@ -39,6 +39,17 @@ interface DiamondBoardProps {
   } | null;
   currentUserId?: string;
   matchStatus?: string;
+  // Match and game data for win/loss status
+  match?: {
+    winnerId?: string | null;
+    status: string;
+  };
+  game?: {
+    status: string;
+    result?: string | null;
+    whitePlayerId: string;
+    blackPlayerId: string;
+  };
 }
 
 interface SquareProps {
@@ -208,6 +219,8 @@ export default function DiamondBoard({
   player2,
   currentUserId,
   matchStatus,
+  match,
+  game,
 }: DiamondBoardProps) {
   const { isMobile } = useBreakpoints();
 
@@ -347,10 +360,44 @@ export default function DiamondBoard({
   );
 
   // Calculate player turn states
-  const isPlayer1 = player1 && currentUserId === player1.id;
-  const isPlayer2 = player2 && currentUserId === player2.id;
   const whitePlayerTurn = currentTurn === 'WHITE';
   const blackPlayerTurn = currentTurn === 'BLACK';
+  const isPlayer1 = currentUserId === player1?.id;
+  const isPlayer2 = currentUserId === player2?.id;
+
+  // Calculate win/loss status for completed matches
+  const getPlayerWinStatus = (
+    playerId: string | undefined,
+    playerColor: PieceColor
+  ): 'winner' | 'loser' | null => {
+    if (!match || !game || !playerId || match.status !== 'COMPLETED') {
+      return null;
+    }
+
+    // Check if this player won
+    if (match.winnerId === playerId) {
+      return 'winner';
+    }
+
+    // Check if this is a draw
+    if (game.result === 'DRAW') {
+      return null; // No winner/loser in a draw
+    }
+
+    // Check if this player lost
+    if (match.winnerId && match.winnerId !== playerId) {
+      return 'loser';
+    }
+
+    return null;
+  };
+
+  const player1WinStatus = getPlayerWinStatus(player1?.id, 'WHITE');
+  const player2WinStatus = getPlayerWinStatus(player2?.id, 'BLACK');
+
+  const highlightSquares = highlightedSquares || [];
+  const validMoveSquares = validMoves || [];
+  const selected = selectedSquare;
 
   return (
     <Box
@@ -365,7 +412,7 @@ export default function DiamondBoard({
       }}
     >
       {/* Player Cards positioned relative to exact board dimensions */}
-      {matchStatus === 'IN_PROGRESS' && (
+      {(matchStatus === 'IN_PROGRESS' || matchStatus === 'COMPLETED') && (
         <>
           {/* Black Player - Top Left relative to board */}
           <PlayerCard
@@ -375,6 +422,7 @@ export default function DiamondBoard({
             isCurrentUser={!!isPlayer2}
             position="top-left"
             boardSize={boardSize}
+            winStatus={player2WinStatus}
           />
 
           {/* White Player - Bottom Right relative to board */}
@@ -385,9 +433,61 @@ export default function DiamondBoard({
             isCurrentUser={!!isPlayer1}
             position="bottom-right"
             boardSize={boardSize}
+            winStatus={player1WinStatus}
           />
         </>
       )}
+
+      {/* Coordinate Labels */}
+      {/* Bottom-left edge: File letters (a-h) */}
+      {[0, 1, 2, 3, 4, 5, 6, 7].map(file => {
+        const rank = 0; // Bottom rank
+        const chessPos = { file, rank };
+        const screenPos = getScreenPosition(chessPos);
+        return (
+          <Box
+            key={`file-${file}`}
+            sx={{
+              position: 'absolute',
+              left: screenPos.left - squareSize / 4 + 8,
+              top: screenPos.top + squareSize - 8,
+              fontSize: '14px',
+              color: 'text.secondary',
+              fontWeight: 600,
+              userSelect: 'none',
+              textAlign: 'center',
+              transform: 'translate(-50%, 0)',
+            }}
+          >
+            {String.fromCharCode(97 + file)}
+          </Box>
+        );
+      })}
+
+      {/* Top-left edge: Rank numbers (1-8) */}
+      {[0, 1, 2, 3, 4, 5, 6, 7].map(rank => {
+        const file = 0; // Leftmost file
+        const chessPos = { file, rank };
+        const screenPos = getScreenPosition(chessPos);
+        return (
+          <Box
+            key={`rank-${rank}`}
+            sx={{
+              position: 'absolute',
+              left: screenPos.left + squareSize / 2 - 32,
+              top: screenPos.top - 4,
+              fontSize: '14px',
+              color: 'text.secondary',
+              fontWeight: 600,
+              userSelect: 'none',
+              textAlign: 'center',
+              transform: 'translate(-50%, -50%)',
+            }}
+          >
+            {rank + 1}
+          </Box>
+        );
+      })}
 
       {/* Render all squares */}
       {allChessPositions.map(chessPosition => {

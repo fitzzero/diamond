@@ -13,8 +13,8 @@ import { chessCoords } from './coordinates';
  * This is much simpler than trying to adapt chess rules to diamond coordinates.
  *
  * Diamond Chess Special Rules:
- * - Pawns: White pawns move NW/NE diagonally, capture N (straight up)
- * - Pawns: Black pawns move SW/SE diagonally, capture S (straight down)
+ * - Pawns: White pawns move Left (-file) and Up (+rank), capture diagonally Top Left (-1 file, +1 rank)
+ * - Pawns: Black pawns move Right (+file) and Down (-rank), capture diagonally Bottom Right (+1 file, -1 rank)
  * - All other pieces follow standard chess movement rules
  */
 
@@ -56,8 +56,8 @@ class StandardPieceMovement {
 
   /**
    * Diamond Chess Pawn Movement:
-   * - White pawns: Move NW/NE diagonally, capture N (straight up)
-   * - Black pawns: Move SW/SE diagonally, capture S (straight down)
+   * - White pawns: Move Left (-file) and Up (+rank), capture Top Left (-1 file, +1 rank)
+   * - Black pawns: Move Right (+file) and Down (-rank), capture Bottom Right (+1 file, -1 rank)
    */
   private getPawnMoves(
     piece: Piece,
@@ -70,71 +70,45 @@ class StandardPieceMovement {
     const isWhite = piece.color === 'WHITE';
 
     if (options.capturesOnly) {
-      // Diamond Chess: Pawns capture straight forward/backward
+      // Diamond Chess: Pawns capture diagonally only
       if (isWhite) {
-        // White pawns capture straight up (north)
-        const capturePos = { file, rank: rank + 1 };
+        // White pawns capture only to top left (-1 file, +1 rank)
+        const capturePos = { file: file - 1, rank: rank + 1 };
         if (this.canCapture(capturePos, piece.color, board)) {
           moves.push(capturePos);
         }
       } else {
-        // Black pawns capture straight down (south)
-        const capturePos = { file, rank: rank - 1 };
+        // Black pawns capture only to bottom right (+1 file, -1 rank)
+        const capturePos = { file: file + 1, rank: rank - 1 };
         if (this.canCapture(capturePos, piece.color, board)) {
           moves.push(capturePos);
         }
       }
     } else {
-      // Diamond Chess: Pawns move diagonally
+      // Diamond Chess: Pawns move Left/Up (White) or Right/Down (Black)
       if (isWhite) {
-        // White pawns move NW and NE diagonally
-        const moveNW = { file: file - 1, rank: rank + 1 }; // Northwest
-        const moveNE = { file: file + 1, rank: rank + 1 }; // Northeast
+        // White pawns move Left (-file) and Up (+rank) - these are separate moves
+        const moveLeft = { file: file - 1, rank: rank }; // Move left
+        const moveUp = { file: file, rank: rank + 1 }; // Move up
 
-        if (this.isEmptySquare(moveNW, board)) moves.push(moveNW);
-        if (this.isEmptySquare(moveNE, board)) moves.push(moveNE);
+        if (this.isEmptySquare(moveLeft, board)) moves.push(moveLeft);
+        if (this.isEmptySquare(moveUp, board)) moves.push(moveUp);
 
-        // Two-square initial move from starting position
-        if (rank === 1) {
-          // Check both diagonal double moves if the single moves are clear
-          if (this.isEmptySquare(moveNW, board)) {
-            const doubleNW = { file: file - 2, rank: rank + 2 };
-            if (this.isEmptySquare(doubleNW, board)) moves.push(doubleNW);
-          }
-          if (this.isEmptySquare(moveNE, board)) {
-            const doubleNE = { file: file + 2, rank: rank + 2 };
-            if (this.isEmptySquare(doubleNE, board)) moves.push(doubleNE);
-          }
-        }
-
-        // Capture moves (straight up for white in Diamond Chess)
-        const capturePos = { file, rank: rank + 1 };
+        // Add capture move (diagonally top-left)
+        const capturePos = { file: file - 1, rank: rank + 1 };
         if (this.canCapture(capturePos, piece.color, board)) {
           moves.push(capturePos);
         }
       } else {
-        // Black pawns move SW and SE diagonally
-        const moveSW = { file: file - 1, rank: rank - 1 }; // Southwest
-        const moveSE = { file: file + 1, rank: rank - 1 }; // Southeast
+        // Black pawns move Right (+file) and Down (-rank) - these are separate moves
+        const moveRight = { file: file + 1, rank: rank }; // Move right
+        const moveDown = { file: file, rank: rank - 1 }; // Move down
 
-        if (this.isEmptySquare(moveSW, board)) moves.push(moveSW);
-        if (this.isEmptySquare(moveSE, board)) moves.push(moveSE);
+        if (this.isEmptySquare(moveRight, board)) moves.push(moveRight);
+        if (this.isEmptySquare(moveDown, board)) moves.push(moveDown);
 
-        // Two-square initial move from starting position
-        if (rank === 6) {
-          // Check both diagonal double moves if the single moves are clear
-          if (this.isEmptySquare(moveSW, board)) {
-            const doubleSW = { file: file - 2, rank: rank - 2 };
-            if (this.isEmptySquare(doubleSW, board)) moves.push(doubleSW);
-          }
-          if (this.isEmptySquare(moveSE, board)) {
-            const doubleSE = { file: file + 2, rank: rank - 2 };
-            if (this.isEmptySquare(doubleSE, board)) moves.push(doubleSE);
-          }
-        }
-
-        // Capture moves (straight down for black in Diamond Chess)
-        const capturePos = { file, rank: rank - 1 };
+        // Add capture move (diagonally bottom-right)
+        const capturePos = { file: file + 1, rank: rank - 1 };
         if (this.canCapture(capturePos, piece.color, board)) {
           moves.push(capturePos);
         }

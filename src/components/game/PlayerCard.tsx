@@ -22,6 +22,7 @@ interface PlayerCardProps {
   isCurrentUser: boolean;
   position: 'top-left' | 'bottom-right';
   boardSize: number;
+  winStatus?: 'winner' | 'loser' | null; // Add win/loss status
 }
 
 export default function PlayerCard({
@@ -31,8 +32,44 @@ export default function PlayerCard({
   isCurrentUser,
   position,
   boardSize,
+  winStatus,
 }: PlayerCardProps) {
   const { isMobile } = useBreakpoints();
+
+  // Add global CSS for winner pulse animation
+  const injectPulseStyles = () => {
+    if (typeof window !== 'undefined') {
+      const existingStyle = document.getElementById('winner-pulse-styles');
+      if (!existingStyle) {
+        const style = document.createElement('style');
+        style.id = 'winner-pulse-styles';
+        style.textContent = `
+          .winner-pulse {
+            animation: winner-pulse 2s ease-in-out infinite;
+          }
+          
+          @keyframes winner-pulse {
+            0% {
+              box-shadow: 0 0 15px rgba(46, 125, 50, 0.5) !important;
+            }
+            50% {
+              box-shadow: 0 0 25px rgba(46, 125, 50, 0.9) !important;
+            }
+            100% {
+              box-shadow: 0 0 15px rgba(46, 125, 50, 0.5) !important;
+            }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    }
+  };
+
+  // Inject styles on mount
+  if (winStatus === 'winner') {
+    injectPulseStyles();
+  }
+
   const xDistance = isMobile ? '100px' : '10%';
   const yDistance = isMobile ? '100px' : '20%';
   const positioning: any = {
@@ -42,6 +79,45 @@ export default function PlayerCard({
     right: position === 'top-left' ? undefined : xDistance,
     bottom: position === 'top-left' ? undefined : yDistance,
   };
+
+  // Determine styling based on win status
+  const getWinStatusStyling = () => {
+    if (winStatus === 'winner') {
+      return {
+        bgcolor: 'background.paper', // Keep default background
+        color: 'text.primary', // Keep default text color
+        borderColor: 'success.main',
+        boxShadow: '0 0 20px rgba(46, 125, 50, 0.7)',
+        '&:hover': {
+          boxShadow: '0 0 25px rgba(46, 125, 50, 0.9)',
+        },
+      };
+    } else if (winStatus === 'loser') {
+      return {
+        bgcolor: 'background.paper', // Keep default background
+        color: 'text.primary', // Keep default text color
+        borderColor: 'error.main',
+        boxShadow: '0 0 15px rgba(211, 47, 47, 0.6)',
+      };
+    } else if (isMyTurn) {
+      return {
+        bgcolor: 'primary.main',
+        color: 'primary.contrastText',
+        borderColor: 'primary.main',
+        boxShadow: 4,
+      };
+    } else {
+      return {
+        bgcolor: 'background.paper',
+        color: 'text.primary',
+        borderColor: 'divider',
+        boxShadow: 1,
+      };
+    }
+  };
+
+  const cardStyling = getWinStatusStyling();
+
   if (!player) {
     return (
       <Card
@@ -116,7 +192,9 @@ export default function PlayerCard({
               fontSize: '0.75rem',
             }}
           >
-            {color} • {isMyTurn ? 'Your Turn!' : 'Waiting...'}
+            {winStatus
+              ? color // Just show color when game is complete
+              : `${color} • ${isMyTurn ? 'Your Turn!' : 'Waiting...'}`}
           </Typography>
         </Stack>
       </Box>
@@ -133,12 +211,10 @@ export default function PlayerCard({
     </Box>
   ) : (
     <Card
+      className={winStatus === 'winner' ? 'winner-pulse' : ''}
       sx={{
         ...positioning,
-        bgcolor: isMyTurn ? 'primary.main' : 'background.paper',
-        color: isMyTurn ? 'primary.contrastText' : 'text.primary',
-        borderColor: isMyTurn ? 'primary.main' : 'divider',
-        boxShadow: isMyTurn ? 4 : 1,
+        ...cardStyling,
         transition: 'all 0.3s ease',
         zIndex: 10,
       }}

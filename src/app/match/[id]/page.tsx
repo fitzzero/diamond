@@ -27,7 +27,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMatchSession } from '@/hooks/useGame';
 import { MainLayout } from '@/components/layout';
 import { DiamondBoard, MoveHistory } from '@/components/game';
-import type { DiamondPosition, PieceColor, Move } from '@/types/game';
+import type {
+  DiamondPosition,
+  ChessPosition,
+  PieceColor,
+  Move,
+} from '@/types/game';
 import { diamondCoords, chessCoords } from '@/lib/game/coordinates';
 import { moveValidator } from '@/lib/game/moveValidation';
 
@@ -51,10 +56,10 @@ export default function MatchPage() {
     isGameStarting,
   } = useMatchSession(matchId);
 
-  const [selectedSquare, setSelectedSquare] = useState<DiamondPosition | null>(
+  const [selectedSquare, setSelectedSquare] = useState<ChessPosition | null>(
     null
   );
-  const [validMoves, setValidMoves] = useState<DiamondPosition[]>([]);
+  const [validMoves, setValidMoves] = useState<ChessPosition[]>([]);
   const [notification, setNotification] = useState<string | null>(null);
   const [moveLoading, setMoveLoading] = useState(false);
   const [joinLoading, setJoinLoading] = useState(false);
@@ -384,6 +389,8 @@ export default function MatchPage() {
               player2={match.player2}
               currentUserId={user?.id}
               matchStatus={match.status}
+              match={match}
+              game={game}
             />
             {moveLoading && (
               <Box
