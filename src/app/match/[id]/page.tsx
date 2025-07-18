@@ -16,13 +16,7 @@ import {
   Paper,
   Divider,
 } from '@mui/material';
-import {
-  PlayArrow,
-  Person,
-  Share,
-  ExitToApp,
-  Refresh,
-} from '@mui/icons-material';
+import { PlayArrow, Person, Share, ExitToApp } from '@mui/icons-material';
 import { useAuth } from '@/hooks/useAuth';
 import { useMatch, useGame } from '@/hooks/useGame';
 import { MainLayout } from '@/components/layout';
@@ -239,17 +233,6 @@ export default function MatchPage() {
                   Share Match
                 </Button>
               )}
-              <Button
-                variant="outlined"
-                startIcon={<Refresh />}
-                onClick={() => {
-                  refreshMatch();
-                  refreshGame();
-                }}
-                size="small"
-              >
-                Refresh
-              </Button>
             </Stack>
           </Stack>
 
