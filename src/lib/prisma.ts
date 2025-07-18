@@ -9,6 +9,12 @@ export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     log: ['error'], // Only show errors to reduce log noise
+    omit: {
+      user: {
+        email: true,
+        emailVerified: true,
+      },
+    },
   }).$extends(withAccelerate());
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;

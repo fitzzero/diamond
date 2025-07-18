@@ -26,6 +26,12 @@ const nextConfig = {
     NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
     NEXT_PUBLIC_APP_DESCRIPTION: process.env.NEXT_PUBLIC_APP_DESCRIPTION,
   },
+  // Reduce logging noise in development
+  logging: {
+    fetches: {
+      fullUrl: false, // Don't log full URLs
+    },
+  },
   // Bundle analyzer for production optimization
   webpack: (config, { dev, isServer }) => {
     // Optimize for chess engine calculations
@@ -35,6 +41,14 @@ const nextConfig = {
         fs: false,
       };
     }
+
+    // Reduce polling-related console noise in development
+    if (dev && !isServer) {
+      config.infrastructureLogging = {
+        level: 'error',
+      };
+    }
+
     return config;
   },
   // Enable source maps in development

@@ -14,14 +14,23 @@ import {
   Alert,
   CircularProgress,
   Paper,
-  Divider,
+  LinearProgress,
+  Badge,
 } from '@mui/material';
-import { PlayArrow, Person, Share, ExitToApp } from '@mui/icons-material';
+import {
+  PlayArrow,
+  Person,
+  Share,
+  ExitToApp,
+  Timer,
+  SignalWifi4Bar,
+  SignalWifiOff,
+  Refresh,
+} from '@mui/icons-material';
 import { useAuth } from '@/hooks/useAuth';
-import { useMatch, useGame } from '@/hooks/useGame';
+import { useMatchSession } from '@/hooks/useGame';
 import { MainLayout } from '@/components/layout';
 import { DiamondBoard, MoveHistory, GameStatus } from '@/components/game';
-import { joinMatch, makeMove } from '@/lib/actions/gameActions';
 import type { DiamondPosition, PieceColor, Move } from '@/types/game';
 import { diamondCoords } from '@/lib/game/coordinates';
 
@@ -31,55 +40,51 @@ export default function MatchPage() {
   const { user, isAuthenticated } = useAuth();
   const matchId = params.id as string;
 
+  // Use the enhanced match session hook for seamless real-time experience
   const {
     match,
-    isLoading: matchLoading,
-    error: matchError,
-    refresh: refreshMatch,
-  } = useMatch(matchId);
-  const {
     game,
-    isLoading: gameLoading,
-    error: gameError,
-    refresh: refreshGame,
-  } = useGame(match?.games?.[0]?.id || null);
+    isMatchLoading,
+    isGameLoading,
+    matchError,
+    gameError,
+    joinMatch,
+    makeMove,
+    refreshMatch,
+    refreshGame,
+    realtimeStatus,
+    isGameStarting,
+  } = useMatchSession(matchId);
 
-  const [joinLoading, setJoinLoading] = useState(false);
   const [selectedSquare, setSelectedSquare] = useState<DiamondPosition | null>(
     null
   );
   const [validMoves, setValidMoves] = useState<DiamondPosition[]>([]);
   const [notification, setNotification] = useState<string | null>(null);
   const [moveLoading, setMoveLoading] = useState(false);
+  const [joinLoading, setJoinLoading] = useState(false);
 
-  // Auto-refresh game state every 5 seconds when game is in progress
+  // Auto-dismiss notifications
   useEffect(() => {
-    if (match?.status === 'IN_PROGRESS' && game) {
-      const interval = setInterval(() => {
-        refreshGame();
-      }, 5000);
-
-      return () => clearInterval(interval);
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 5000);
+      return () => clearTimeout(timer);
     }
-  }, [match?.status, game, refreshGame]);
+  }, [notification]);
 
+  // Handle seamless match joining
   const handleJoinMatch = async () => {
     if (joinLoading) return;
 
     setJoinLoading(true);
     try {
-      const result = await joinMatch(matchId);
-
-      if (result.success) {
-        setNotification('Successfully joined the match!');
-        refreshMatch();
-        refreshGame();
-      } else {
-        setNotification(result.error || 'Failed to join match');
-      }
+      const result = await joinMatch();
+      setNotification('Successfully joined! Game starting...');
     } catch (error) {
       console.error('Error joining match:', error);
-      setNotification('An error occurred while joining the match');
+      setNotification(
+        error instanceof Error ? error.message : 'Failed to join match'
+      );
     } finally {
       setJoinLoading(false);
     }
@@ -93,7 +98,7 @@ export default function MatchPage() {
   };
 
   const handleSquareClick = (position: DiamondPosition) => {
-    // TODO: Implement piece selection and move logic
+    // TODO: Implement enhanced piece selection with valid moves display
     setSelectedSquare(position);
     console.log('Square clicked:', position);
   };
@@ -104,7 +109,7 @@ export default function MatchPage() {
   ) => {
     if (moveLoading || !game || !isParticipant) return;
 
-    // Check if it's the player's turn
+    // Enhanced turn validation
     const isMyTurn =
       (game.currentTurn === 'WHITE' && isPlayer1) ||
       (game.currentTurn === 'BLACK' && isPlayer2);
@@ -137,25 +142,25 @@ export default function MatchPage() {
         piece,
       };
 
-      // Make the move using server action
-      const result = await makeMove(game.id, move);
+      // Make the move using enhanced server action
+      await makeMove(move);
+      setNotification('Move made successfully!');
 
-      if (result.success) {
-        setNotification('Move made successfully!');
-        // Clear selection
-        setSelectedSquare(null);
-        setValidMoves([]);
-        // Refresh game state
-        refreshGame();
-      } else {
-        setNotification(result.error || 'Move failed');
-      }
+      // Clear selection
+      setSelectedSquare(null);
+      setValidMoves([]);
     } catch (error) {
       console.error('Error making move:', error);
-      setNotification('An error occurred while making the move');
+      setNotification(error instanceof Error ? error.message : 'Move failed');
     } finally {
       setMoveLoading(false);
     }
+  };
+
+  const handleManualRefresh = () => {
+    refreshMatch();
+    refreshGame();
+    setNotification('Refreshing...');
   };
 
   if (!isAuthenticated) {
@@ -170,12 +175,22 @@ export default function MatchPage() {
     );
   }
 
-  if (matchLoading) {
+  if (isMatchLoading) {
     return (
       <MainLayout>
         <Container maxWidth="lg" sx={{ py: 4 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress />
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              py: 8,
+            }}
+          >
+            <CircularProgress size={60} sx={{ mb: 2 }} />
+            <Typography variant="h6" color="text.secondary">
+              Loading match...
+            </Typography>
           </Box>
         </Container>
       </MainLayout>
@@ -186,14 +201,10 @@ export default function MatchPage() {
     return (
       <MainLayout>
         <Container maxWidth="lg" sx={{ py: 4 }}>
-          <Alert severity="error">
-            Match not found or unable to load match data.
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {matchError || 'Match not found or unable to load match data.'}
           </Alert>
-          <Button
-            onClick={() => router.push('/')}
-            sx={{ mt: 2 }}
-            variant="contained"
-          >
+          <Button onClick={() => router.push('/')} variant="contained">
             Return Home
           </Button>
         </Container>
@@ -207,10 +218,17 @@ export default function MatchPage() {
   const canJoin = match.status === 'WAITING_FOR_PLAYER' && !isParticipant;
   const currentPlayerColor: PieceColor = isPlayer1 ? 'WHITE' : 'BLACK';
 
+  // Enhanced turn detection
+  const isMyTurn =
+    game &&
+    isParticipant &&
+    ((game.currentTurn === 'WHITE' && isPlayer1) ||
+      (game.currentTurn === 'BLACK' && isPlayer2));
+
   return (
     <MainLayout>
       <Container maxWidth="xl" sx={{ py: 4 }}>
-        {/* Match Header */}
+        {/* Enhanced Match Header with Real-time Status */}
         <Box sx={{ mb: 4 }}>
           <Stack
             direction="row"
@@ -222,7 +240,34 @@ export default function MatchPage() {
               Match #{matchId.slice(-6)}
             </Typography>
 
-            <Stack direction="row" spacing={2}>
+            <Stack direction="row" spacing={2} alignItems="center">
+              {/* Real-time Connection Status */}
+              <Badge
+                color={
+                  realtimeStatus?.connectionStatus === 'polling'
+                    ? 'success'
+                    : 'error'
+                }
+                variant="dot"
+              >
+                {realtimeStatus?.connectionStatus === 'polling' ? (
+                  <SignalWifi4Bar color="success" />
+                ) : (
+                  <SignalWifiOff color="error" />
+                )}
+              </Badge>
+
+              {/* Manual Refresh */}
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<Refresh />}
+                onClick={handleManualRefresh}
+              >
+                Refresh
+              </Button>
+
+              {/* Share Match */}
               {match.status === 'WAITING_FOR_PLAYER' && isPlayer1 && (
                 <Button
                   variant="outlined"
@@ -236,17 +281,47 @@ export default function MatchPage() {
             </Stack>
           </Stack>
 
-          <Chip
-            label={match.status.replace('_', ' ').toUpperCase()}
-            color={
-              match.status === 'IN_PROGRESS'
-                ? 'success'
-                : match.status === 'WAITING_FOR_PLAYER'
-                  ? 'warning'
-                  : 'default'
-            }
-            sx={{ mb: 2 }}
-          />
+          {/* Enhanced Status Display */}
+          <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+            <Chip
+              label={match.status.replace('_', ' ').toUpperCase()}
+              color={
+                match.status === 'IN_PROGRESS'
+                  ? 'success'
+                  : match.status === 'WAITING_FOR_PLAYER'
+                    ? 'warning'
+                    : 'default'
+              }
+            />
+
+            {/* Turn Indicator */}
+            {game && match.status === 'IN_PROGRESS' && (
+              <Chip
+                icon={<Timer />}
+                label={
+                  isMyTurn
+                    ? 'Your Turn!'
+                    : `${game.currentTurn === 'WHITE' ? 'White' : 'Black'}'s Turn`
+                }
+                color={isMyTurn ? 'primary' : 'default'}
+                variant={isMyTurn ? 'filled' : 'outlined'}
+              />
+            )}
+
+            {/* Game Starting Indicator */}
+            {isGameStarting && (
+              <Chip
+                icon={<CircularProgress size={16} />}
+                label="Game Starting..."
+                color="info"
+              />
+            )}
+          </Stack>
+
+          {/* Real-time Loading Indicator */}
+          {(isGameLoading || isGameStarting) && (
+            <LinearProgress sx={{ width: '100%', borderRadius: 1 }} />
+          )}
         </Box>
 
         <Box
@@ -254,7 +329,7 @@ export default function MatchPage() {
             display: 'grid',
             gridTemplateColumns: { xs: '1fr', lg: '1.5fr 1fr' },
             gap: { xs: 2, md: 4 },
-            minHeight: { xs: 'auto', md: '70vh' }, // Better mobile height management
+            minHeight: { xs: 'auto', md: '70vh' },
           }}
         >
           {/* Game Board Section */}
@@ -262,8 +337,20 @@ export default function MatchPage() {
             <Paper sx={{ p: { xs: 2, md: 3 } }}>
               <Typography variant="h6" gutterBottom>
                 Game Board
+                {/* Player Color Indicator */}
+                {isParticipant && game && (
+                  <Chip
+                    label={`You are ${currentPlayerColor}`}
+                    size="small"
+                    color={
+                      currentPlayerColor === 'WHITE' ? 'default' : 'primary'
+                    }
+                    sx={{ ml: 2 }}
+                  />
+                )}
               </Typography>
 
+              {/* Waiting for Player */}
               {match.status === 'WAITING_FOR_PLAYER' && canJoin && (
                 <Box sx={{ textAlign: 'center', mb: 4 }}>
                   <Typography variant="body1" sx={{ mb: 2 }}>
@@ -297,9 +384,15 @@ export default function MatchPage() {
                 </Alert>
               )}
 
-              {/* Game Board */}
+              {/* Game Board or Loading State */}
               {game?.boardState ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                <Box
+                  sx={{
+                    position: 'relative',
+                    display: 'flex',
+                    justifyContent: 'center',
+                  }}
+                >
                   <DiamondBoard
                     boardState={game.boardState}
                     currentTurn={game.currentTurn}
@@ -310,9 +403,12 @@ export default function MatchPage() {
                     readOnly={
                       !isParticipant ||
                       match.status !== 'IN_PROGRESS' ||
+                      !isMyTurn ||
                       moveLoading
                     }
                   />
+
+                  {/* Move Loading Overlay */}
                   {moveLoading && (
                     <Box
                       sx={{
@@ -321,47 +417,71 @@ export default function MatchPage() {
                         left: '50%',
                         transform: 'translate(-50%, -50%)',
                         zIndex: 10,
+                        bgcolor: 'rgba(255, 255, 255, 0.8)',
+                        borderRadius: 2,
+                        p: 2,
                       }}
                     >
                       <CircularProgress size={40} />
                     </Box>
                   )}
                 </Box>
+              ) : isGameStarting ? (
+                <Box sx={{ textAlign: 'center', py: 8 }}>
+                  <CircularProgress size={60} sx={{ mb: 2 }} />
+                  <Typography color="text.secondary">
+                    Game starting...
+                  </Typography>
+                </Box>
               ) : (
                 <Box sx={{ textAlign: 'center', py: 8 }}>
                   <Typography color="text.secondary">
                     {match.status === 'WAITING_FOR_PLAYER'
                       ? 'Game will start once both players have joined'
-                      : 'Loading game board...'}
+                      : isGameLoading
+                        ? 'Loading game board...'
+                        : 'Game board not available'}
                   </Typography>
                 </Box>
               )}
             </Paper>
 
-            {/* Game Status Section */}
+            {/* Enhanced Game Status Section */}
             {game && (
               <GameStatus
                 currentTurn={game.currentTurn}
                 gameStatus={game.status}
                 moves={game.moveHistory || []}
-                whitePlayer={match.player1}
-                blackPlayer={match.player2}
+                whitePlayer={{
+                  id: match.player1.id,
+                  name: match.player1.name || 'Player 1',
+                  image: match.player1.image || undefined,
+                }}
+                blackPlayer={
+                  match.player2
+                    ? {
+                        id: match.player2.id,
+                        name: match.player2.name || 'Player 2',
+                        image: match.player2.image || undefined,
+                      }
+                    : undefined
+                }
                 currentUserId={user?.id}
                 matchStatus={match.status}
               />
             )}
           </Stack>
 
-          {/* Match Info Sidebar */}
+          {/* Enhanced Match Info Sidebar */}
           <Stack
             spacing={{ xs: 2, md: 3 }}
             sx={{
-              order: { xs: -1, lg: 0 }, // Move sidebar above board on mobile
-              maxHeight: { xs: '50vh', lg: 'auto' }, // Limit height on mobile
+              order: { xs: -1, lg: 0 },
+              maxHeight: { xs: '50vh', lg: 'auto' },
               overflow: { xs: 'auto', lg: 'visible' },
             }}
           >
-            {/* Move History */}
+            {/* Real-time Move History */}
             {game && (
               <MoveHistory moves={game.moveHistory || []} compact={true} />
             )}
@@ -384,10 +504,46 @@ export default function MatchPage() {
                 </Stack>
               </CardContent>
             </Card>
+
+            {/* Real-time Status Info */}
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Connection Status
+                </Typography>
+                <Stack spacing={1}>
+                  <Box
+                    sx={{ display: 'flex', justifyContent: 'space-between' }}
+                  >
+                    <Typography variant="body2">Status:</Typography>
+                    <Typography
+                      variant="body2"
+                      color={
+                        realtimeStatus?.connectionStatus === 'polling'
+                          ? 'success.main'
+                          : 'error.main'
+                      }
+                    >
+                      {realtimeStatus?.connectionStatus || 'Unknown'}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{ display: 'flex', justifyContent: 'space-between' }}
+                  >
+                    <Typography variant="body2">Update Interval:</Typography>
+                    <Typography variant="body2">
+                      {realtimeStatus
+                        ? `${realtimeStatus.updateInterval / 1000}s`
+                        : 'N/A'}
+                    </Typography>
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
           </Stack>
         </Box>
 
-        {/* Notification */}
+        {/* Enhanced Notification */}
         {notification && (
           <Alert
             severity="info"
@@ -398,6 +554,7 @@ export default function MatchPage() {
               left: '50%',
               transform: 'translateX(-50%)',
               zIndex: 9999,
+              minWidth: 300,
             }}
           >
             {notification}
