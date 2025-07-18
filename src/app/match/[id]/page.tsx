@@ -27,8 +27,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMatch, useGame } from '@/hooks/useGame';
 import { MainLayout } from '@/components/layout';
 import { DiamondBoard } from '@/components/game';
-import { joinMatch } from '@/lib/actions/gameActions';
-import type { DiamondPosition, PieceColor } from '@/types/game';
+import { joinMatch, makeMove } from '@/lib/actions/gameActions';
+import type { DiamondPosition, PieceColor, Move } from '@/types/game';
+import { diamondCoords } from '@/lib/game/coordinates';
 
 export default function MatchPage() {
   const params = useParams();
@@ -55,6 +56,7 @@ export default function MatchPage() {
   );
   const [validMoves, setValidMoves] = useState<DiamondPosition[]>([]);
   const [notification, setNotification] = useState<string | null>(null);
+  const [moveLoading, setMoveLoading] = useState(false);
 
   // Auto-refresh game state every 5 seconds when game is in progress
   useEffect(() => {
@@ -102,9 +104,64 @@ export default function MatchPage() {
     console.log('Square clicked:', position);
   };
 
-  const handlePieceMove = (from: DiamondPosition, to: DiamondPosition) => {
-    // TODO: Implement actual move logic with server action
-    console.log('Move attempt:', from, 'to', to);
+  const handlePieceMove = async (
+    from: DiamondPosition,
+    to: DiamondPosition
+  ) => {
+    if (moveLoading || !game || !isParticipant) return;
+
+    // Check if it's the player's turn
+    const isMyTurn =
+      (game.currentTurn === 'WHITE' && isPlayer1) ||
+      (game.currentTurn === 'BLACK' && isPlayer2);
+
+    if (!isMyTurn) {
+      setNotification("It's not your turn!");
+      return;
+    }
+
+    setMoveLoading(true);
+    try {
+      // Get the piece being moved
+      const piece = game.boardState.get(diamondCoords.positionToKey(from));
+
+      if (!piece) {
+        setNotification('No piece at source position');
+        return;
+      }
+
+      // Check if it's the correct player's piece
+      if (piece.color !== game.currentTurn) {
+        setNotification('You can only move your own pieces');
+        return;
+      }
+
+      // Create move object
+      const move: Move = {
+        from,
+        to,
+        piece,
+      };
+
+      // Make the move using server action
+      const result = await makeMove(game.id, move);
+
+      if (result.success) {
+        setNotification('Move made successfully!');
+        // Clear selection
+        setSelectedSquare(null);
+        setValidMoves([]);
+        // Refresh game state
+        refreshGame();
+      } else {
+        setNotification(result.error || 'Move failed');
+      }
+    } catch (error) {
+      console.error('Error making move:', error);
+      setNotification('An error occurred while making the move');
+    } finally {
+      setMoveLoading(false);
+    }
   };
 
   if (!isAuthenticated) {
@@ -265,8 +322,25 @@ export default function MatchPage() {
                   onPieceMove={handlePieceMove}
                   selectedSquare={selectedSquare}
                   validMoves={validMoves}
-                  readOnly={!isParticipant || match.status !== 'IN_PROGRESS'}
+                  readOnly={
+                    !isParticipant ||
+                    match.status !== 'IN_PROGRESS' ||
+                    moveLoading
+                  }
                 />
+                {moveLoading && (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      zIndex: 10,
+                    }}
+                  >
+                    <CircularProgress size={40} />
+                  </Box>
+                )}
               </Box>
             ) : (
               <Box sx={{ textAlign: 'center', py: 8 }}>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Box, Typography, useTheme, useMediaQuery } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { CHESS_ICONS } from '@/lib/fontawesome';
@@ -11,6 +11,7 @@ import type {
   PieceColor,
 } from '@/types/game';
 import { diamondCoords } from '@/lib/game/coordinates';
+import { pieceMovement } from '@/lib/game/pieceMovement';
 
 interface DiamondBoardProps {
   boardState: BoardState;
@@ -30,10 +31,17 @@ interface SquareProps {
   isSelected: boolean;
   isValidMove: boolean;
   isHighlighted: boolean;
+  isDragOver: boolean;
   onClick: () => void;
+  onDragStart: (position: DiamondPosition) => void;
+  onDragEnd: () => void;
+  onDragOver: (position: DiamondPosition) => void;
+  onDrop: (position: DiamondPosition) => void;
   size: number;
   left: number;
   top: number;
+  readOnly: boolean;
+  currentTurn: PieceColor;
 }
 
 function ChessSquare({
@@ -43,18 +51,61 @@ function ChessSquare({
   isSelected,
   isValidMove,
   isHighlighted,
+  isDragOver,
   onClick,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
   size,
   left,
   top,
+  readOnly,
+  currentTurn,
 }: SquareProps) {
   const theme = useTheme();
 
   const getSquareColor = () => {
     if (isSelected) return theme.palette.warning.main;
+    if (isDragOver && isValidMove) return theme.palette.success.main;
     if (isValidMove) return theme.palette.success.light;
     if (isHighlighted) return theme.palette.info.light;
     return isLight ? theme.palette.primary.main : theme.palette.primary.dark;
+  };
+
+  const canDragPiece = piece && piece.color === currentTurn && !readOnly;
+
+  const handleDragStart = (e: React.DragEvent) => {
+    if (!canDragPiece) {
+      e.preventDefault();
+      return;
+    }
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', diamondCoords.positionToKey(position));
+    onDragStart(position);
+  };
+
+  const handleDragEnd = () => {
+    onDragEnd();
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (isValidMove) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      onDragOver(position);
+    }
+  };
+
+  const handleDragLeave = () => {
+    // Reset drag over state when leaving
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (isValidMove) {
+      onDrop(position);
+    }
   };
 
   const getPieceIcon = () => {
@@ -66,6 +117,12 @@ function ChessSquare({
   return (
     <Box
       onClick={onClick}
+      draggable={canDragPiece}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       sx={{
         position: 'absolute',
         left,
@@ -75,7 +132,7 @@ function ChessSquare({
         backgroundColor: getSquareColor(),
         border: '1px solid',
         borderColor: 'rgba(0, 0, 0, 0.2)',
-        cursor: 'pointer',
+        cursor: canDragPiece ? 'grab' : isValidMove ? 'pointer' : 'default',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -86,6 +143,11 @@ function ChessSquare({
           opacity: 0.8,
           transform: 'rotate(45deg) scale(1.05)',
         },
+        '&:active': canDragPiece
+          ? {
+              cursor: 'grabbing',
+            }
+          : {},
         ...(isValidMove && {
           '&::after': {
             content: '""',
@@ -131,6 +193,16 @@ export default function DiamondBoard({
 }: DiamondBoardProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  // Drag state management
+  const [draggedPiece, setDraggedPiece] = useState<{
+    piece: Piece;
+    from: DiamondPosition;
+  } | null>(null);
+  const [dragOverPosition, setDragOverPosition] =
+    useState<DiamondPosition | null>(null);
+  const [localValidMoves, setLocalValidMoves] =
+    useState<DiamondPosition[]>(validMoves);
 
   // Get all valid positions for the diamond board
   const allPositions = useMemo(() => {
@@ -178,6 +250,47 @@ export default function DiamondBoard({
     onSquareClick?.(position);
   };
 
+  // Drag event handlers
+  const handleDragStart = useCallback(
+    (position: DiamondPosition) => {
+      const piece = boardState.get(diamondCoords.positionToKey(position));
+      if (piece && piece.color === currentTurn && !readOnly) {
+        setDraggedPiece({ piece, from: position });
+
+        // Calculate valid moves for this piece
+        const moves = pieceMovement.getPossibleMoves(
+          piece,
+          position,
+          boardState
+        );
+        setLocalValidMoves(moves);
+      }
+    },
+    [boardState, currentTurn, readOnly]
+  );
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedPiece(null);
+    setDragOverPosition(null);
+    setLocalValidMoves(validMoves);
+  }, [validMoves]);
+
+  const handleDragOver = useCallback((position: DiamondPosition) => {
+    setDragOverPosition(position);
+  }, []);
+
+  const handleDrop = useCallback(
+    (position: DiamondPosition) => {
+      if (draggedPiece && onPieceMove) {
+        onPieceMove(draggedPiece.from, position);
+      }
+      setDraggedPiece(null);
+      setDragOverPosition(null);
+      setLocalValidMoves(validMoves);
+    },
+    [draggedPiece, onPieceMove, validMoves]
+  );
+
   return (
     <Box
       sx={{
@@ -221,8 +334,12 @@ export default function DiamondBoard({
           const isSelected = selectedSquare
             ? selectedSquare.x === position.x && selectedSquare.y === position.y
             : false;
-          const isValidMove = isPositionInArray(position, validMoves);
+          const isValidMove = isPositionInArray(position, localValidMoves);
           const isHighlighted = isPositionInArray(position, highlightedSquares);
+          const isDragOver = dragOverPosition
+            ? dragOverPosition.x === position.x &&
+              dragOverPosition.y === position.y
+            : false;
 
           return (
             <ChessSquare
@@ -233,10 +350,17 @@ export default function DiamondBoard({
               isSelected={isSelected}
               isValidMove={isValidMove}
               isHighlighted={isHighlighted}
+              isDragOver={isDragOver}
               onClick={() => handleSquareClick(position)}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
               size={squareSize}
               left={screenPos.left}
               top={screenPos.top}
+              readOnly={readOnly}
+              currentTurn={currentTurn}
             />
           );
         })}
