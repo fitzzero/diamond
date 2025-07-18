@@ -142,19 +142,31 @@ export function useUserMatches() {
  * Hook to get a specific match by ID
  */
 export function useMatch(matchId: string | null) {
-  const { matches, isLoading, error, refresh } = useUserMatches();
+  const { data: session } = useSession();
 
-  // Extract actual matches array from the result
-  const matchesArray = (matches as any)?.success
-    ? (matches as any).matches
-    : [];
-  const match = matchesArray?.find((m: any) => m.id === matchId);
+  const { data, error, isLoading, mutate } = useSWR(
+    session?.user && matchId ? ['match', matchId] : null,
+    async ([, id]) => {
+      const { getMatch } = await import('@/lib/actions/gameActions');
+      return await getMatch(id);
+    },
+    {
+      refreshInterval: 0,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      revalidateOnMount: true,
+      dedupingInterval: 5000,
+    }
+  );
+
+  // Extract match from the result
+  const match = data?.success ? data.match : null;
 
   return {
     match,
     isLoading,
-    error,
-    refresh,
+    error: error || (data && !data.success ? data.error : null),
+    refresh: mutate,
   };
 }
 

@@ -291,12 +291,14 @@ export default function MatchPage() {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Person sx={{ color: 'text.secondary' }} />
                     <Box>
-                      <Typography variant="body1">
-                        {match.player1?.name || 'Player 1'}
-                        {isPlayer1 && (
-                          <Chip label="You" size="small" sx={{ ml: 1 }} />
-                        )}
-                      </Typography>
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                      >
+                        <Typography variant="body1" component="span">
+                          {match.player1?.name || 'Player 1'}
+                        </Typography>
+                        {isPlayer1 && <Chip label="You" size="small" />}
+                      </Box>
                       <Typography variant="caption" color="text.secondary">
                         White pieces
                       </Typography>
@@ -308,12 +310,14 @@ export default function MatchPage() {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Person sx={{ color: 'text.secondary' }} />
                     <Box>
-                      <Typography variant="body1">
-                        {match.player2?.name || 'Waiting for player...'}
-                        {isPlayer2 && (
-                          <Chip label="You" size="small" sx={{ ml: 1 }} />
-                        )}
-                      </Typography>
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                      >
+                        <Typography variant="body1" component="span">
+                          {match.player2?.name || 'Waiting for player...'}
+                        </Typography>
+                        {isPlayer2 && <Chip label="You" size="small" />}
+                      </Box>
                       <Typography variant="caption" color="text.secondary">
                         Black pieces
                       </Typography>
@@ -331,14 +335,16 @@ export default function MatchPage() {
                     Game Status
                   </Typography>
                   <Stack spacing={1}>
-                    <Typography variant="body2">
-                      <strong>Turn:</strong>{' '}
-                      {game.currentTurn === 'WHITE' ? 'White' : 'Black'}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="body2" component="span">
+                        <strong>Turn:</strong>{' '}
+                        {game.currentTurn === 'WHITE' ? 'White' : 'Black'}
+                      </Typography>
                       {((game.currentTurn === 'WHITE' && isPlayer1) ||
                         (game.currentTurn === 'BLACK' && isPlayer2)) && (
-                        <Chip label="Your turn" size="small" sx={{ ml: 1 }} />
+                        <Chip label="Your turn" size="small" />
                       )}
-                    </Typography>
+                    </Box>
                     <Typography variant="body2">
                       <strong>Status:</strong> {game.status.replace('_', ' ')}
                     </Typography>

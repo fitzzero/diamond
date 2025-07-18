@@ -45,6 +45,12 @@ export interface UserMatchesResult {
   error?: string;
 }
 
+export interface GetMatchResult {
+  success: boolean;
+  match?: any;
+  error?: string;
+}
+
 /**
  * Create a new match for the authenticated user
  */
@@ -350,5 +356,43 @@ export async function getUserMatches(): Promise<UserMatchesResult> {
   } catch (error) {
     console.error('Error getting user matches:', error);
     return { success: false, error: 'Failed to get matches' };
+  }
+}
+
+/**
+ * Get a specific match by ID (accessible to any authenticated user)
+ */
+export async function getMatch(matchId: string): Promise<GetMatchResult> {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const match = await prisma.match.findUnique({
+      where: { id: matchId },
+      include: {
+        player1: true,
+        player2: true,
+        games: {
+          orderBy: { gameNumber: 'desc' },
+          take: 1, // Get most recent game
+        },
+      },
+      cacheStrategy: {
+        ttl: 5, // Cache match data for 5 seconds
+        swr: 15, // Serve stale for 15 seconds
+      },
+    });
+
+    if (!match) {
+      return { success: false, error: 'Match not found' };
+    }
+
+    return { success: true, match };
+  } catch (error) {
+    console.error('Error getting match:', error);
+    return { success: false, error: 'Failed to get match' };
   }
 }
