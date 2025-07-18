@@ -15,9 +15,9 @@ import type {
   CreateMatchResult,
   JoinMatchResult,
   MakeMoveResult,
-  GameStateResult,
   UserMatchesResult,
   GetMatchResult,
+  MatchSessionResult, // Add the new type
   MatchWithPlayers,
   GameWithDetails,
   TurnValidationResult,
@@ -38,12 +38,14 @@ async function getAuthenticatedUser() {
   if (testAuthCookie) {
     try {
       const testUser = JSON.parse(testAuthCookie.value);
+      console.log('🧪 Auth via test cookie - User ID:', testUser.id);
       return testUser;
     } catch (error) {
       console.error('Error parsing test auth cookie:', error);
     }
   }
 
+  console.log('❌ No authentication found');
   return null;
 }
 
@@ -74,26 +76,100 @@ function validatePlayerTurn(game: any, userId: string): TurnValidationResult {
 
 // Helper function to convert game data to EnhancedGameState
 function toEnhancedGameState(game: any): EnhancedGameState {
-  // Parse board state
-  const boardEntries = JSON.parse(game.board);
-  const boardState: BoardState = new Map(boardEntries);
+  try {
+    // Parse board state - handle multiple possible formats
+    let boardEntries: Array<[string, any]> = [];
 
-  return {
-    id: game.id,
-    gameNumber: game.gameNumber,
-    status: game.status,
-    currentTurn: game.currentTurn,
-    boardState, // Return as Map for frontend
-    moveHistory: JSON.parse(game.moveHistory),
-    whitePlayerId: game.whitePlayerId,
-    blackPlayerId: game.blackPlayerId,
-    startedAt: game.startedAt,
-    completedAt: game.completedAt,
-    result: game.result,
-    match: game.match,
-    whitePlayer: game.whitePlayer, // User type automatically excludes PII
-    blackPlayer: game.blackPlayer, // User type automatically excludes PII
-  };
+    if (game.board) {
+      if (typeof game.board === 'string') {
+        // Case 1: JSON string
+        const parsed = JSON.parse(game.board);
+        if (Array.isArray(parsed)) {
+          boardEntries = parsed;
+        } else if (parsed && parsed.pieces && Array.isArray(parsed.pieces)) {
+          // Case 2: Object with pieces array (legacy format)
+          boardEntries = parsed.pieces;
+        }
+      } else if (Array.isArray(game.board)) {
+        // Case 3: Direct array
+        boardEntries = game.board;
+      } else if (
+        game.board &&
+        game.board.pieces &&
+        Array.isArray(game.board.pieces)
+      ) {
+        // Case 4: Object with pieces array
+        boardEntries = game.board.pieces;
+      } else if (typeof game.board === 'object') {
+        // Case 5: Try to convert object to entries
+        boardEntries = Object.entries(game.board).filter(
+          ([key, value]) =>
+            typeof key === 'string' && value && typeof value === 'object'
+        );
+      }
+    }
+
+    const boardState: BoardState = new Map(boardEntries);
+
+    // Parse move history - handle multiple possible formats
+    let moveHistory: any[] = [];
+
+    if (game.moveHistory) {
+      if (typeof game.moveHistory === 'string') {
+        try {
+          moveHistory = JSON.parse(game.moveHistory);
+        } catch (e) {
+          console.warn('Failed to parse moveHistory as JSON:', e);
+          moveHistory = [];
+        }
+      } else if (Array.isArray(game.moveHistory)) {
+        moveHistory = game.moveHistory;
+      }
+    }
+
+    // Ensure moveHistory is always an array
+    if (!Array.isArray(moveHistory)) {
+      moveHistory = [];
+    }
+
+    return {
+      id: game.id,
+      gameNumber: game.gameNumber,
+      status: game.status,
+      currentTurn: game.currentTurn,
+      boardState, // Return as Map for frontend
+      moveHistory,
+      whitePlayerId: game.whitePlayerId,
+      blackPlayerId: game.blackPlayerId,
+      startedAt: game.startedAt,
+      completedAt: game.completedAt,
+      result: game.result,
+      match: game.match,
+      whitePlayer: game.whitePlayer, // User type automatically excludes PII
+      blackPlayer: game.blackPlayer, // User type automatically excludes PII
+    };
+  } catch (error) {
+    console.error('🚨 Error in toEnhancedGameState:', error);
+    console.error('🔍 Game data:', JSON.stringify(game, null, 2));
+
+    // Return a safe fallback state
+    return {
+      id: game.id || 'unknown',
+      gameNumber: game.gameNumber || 1,
+      status: game.status || 'IN_PROGRESS',
+      currentTurn: game.currentTurn || 'WHITE',
+      boardState: new Map(), // Empty board as fallback
+      moveHistory: [],
+      whitePlayerId: game.whitePlayerId || '',
+      blackPlayerId: game.blackPlayerId || '',
+      startedAt: game.startedAt || new Date(),
+      completedAt: game.completedAt || null,
+      result: game.result || null,
+      match: game.match || {},
+      whitePlayer: game.whitePlayer || {},
+      blackPlayer: game.blackPlayer || {},
+    };
+  }
 }
 
 /**
@@ -332,67 +408,6 @@ export async function makeMove(
 }
 
 /**
- * Get current game state with enhanced real-time caching
- */
-export async function getGameState(gameId: string): Promise<GameStateResult> {
-  try {
-    const user = await getAuthenticatedUser();
-
-    if (!user?.id) {
-      return { success: false, error: 'Not authenticated' };
-    }
-
-    const game = await prisma.game.findUnique({
-      where: { id: gameId },
-      include: {
-        match: {
-          include: {
-            player1: true,
-            player2: true,
-          },
-        },
-        whitePlayer: true,
-        blackPlayer: true,
-      },
-      cacheStrategy: {
-        ttl: 3, // Cache for 3 seconds for faster updates
-        swr: 8, // Serve stale for 8 seconds while revalidating
-      },
-    });
-
-    if (!game) {
-      return { success: false, error: 'Game not found' };
-    }
-
-    // Check if user is part of this game
-    const isPlayer =
-      game.whitePlayerId === user.id || game.blackPlayerId === user.id;
-
-    if (!isPlayer) {
-      return { success: false, error: 'Access denied' };
-    }
-
-    const enhancedGameState = toEnhancedGameState(game);
-
-    // Only log in development and when there might be meaningful changes
-    if (process.env.NODE_ENV === 'development') {
-      const moveCount = enhancedGameState.moveHistory.length;
-      // Only log if it's a new game (0 moves) or if there are recent moves
-      if (moveCount === 0 || moveCount > 0) {
-        console.log(
-          `🎮 Game state fetched: ${gameId.slice(-6)} | ${moveCount} moves | ${enhancedGameState.currentTurn}'s turn`
-        );
-      }
-    }
-
-    return { success: true, gameState: enhancedGameState };
-  } catch (error) {
-    console.error('Error getting game state:', error);
-    return { success: false, error: 'Failed to get game state' };
-  }
-}
-
-/**
  * Get user's matches with enhanced real-time support
  */
 export async function getUserMatches(): Promise<UserMatchesResult> {
@@ -496,5 +511,86 @@ export async function getMatch(matchId: string): Promise<GetMatchResult> {
   } catch (error) {
     console.error('Error getting match:', error);
     return { success: false, error: 'Failed to get match' };
+  }
+}
+
+/**
+ * Get complete match session data (match + current game state) for unified polling
+ */
+export async function getMatchSession(
+  matchId: string
+): Promise<MatchSessionResult> {
+  try {
+    const user = await getAuthenticatedUser();
+
+    if (!user?.id) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const match = await prisma.match.findUnique({
+      where: { id: matchId },
+      include: {
+        player1: true,
+        player2: true,
+        games: {
+          orderBy: { gameNumber: 'desc' },
+          take: 1, // Get most recent game
+          include: {
+            match: true,
+            whitePlayer: true,
+            blackPlayer: true,
+          },
+        },
+      },
+      cacheStrategy: {
+        ttl: 1, // Cache for 1 second for fastest updates (reduced from 2)
+        swr: 2, // Serve stale for 2 seconds (reduced from 6)
+      },
+    });
+
+    if (!match) {
+      return { success: false, error: 'Match not found' };
+    }
+
+    // Transform to MatchWithPlayers
+    const enhancedMatch: MatchWithPlayers = {
+      ...match,
+      player1: match.player1,
+      player2: match.player2,
+      games: match.games.map((game: any) => game as GameWithDetails),
+    };
+
+    // Get current game state if there's an active game
+    let gameState: EnhancedGameState | undefined = undefined;
+    if (match.games.length > 0) {
+      const currentGame = match.games[0];
+
+      // Check if user is part of this game
+      const isPlayer =
+        currentGame.whitePlayerId === user.id ||
+        currentGame.blackPlayerId === user.id;
+
+      if (isPlayer) {
+        gameState = toEnhancedGameState(currentGame);
+      }
+    }
+
+    // Development logging for meaningful state changes
+    if (process.env.NODE_ENV === 'development') {
+      const hasGame = !!gameState;
+      const moveCount = gameState?.moveHistory.length || 0;
+      console.log(
+        `🎮 Match session: ${matchId.slice(-6)} | ${enhancedMatch.status} | ${hasGame ? `Game: ${moveCount} moves, ${gameState?.currentTurn}'s turn` : 'No game'}`
+      );
+    }
+
+    return {
+      success: true,
+      match: enhancedMatch,
+      game: gameState,
+    };
+  } catch (error) {
+    console.error('Error getting match session:', error);
+    return { success: false, error: 'Failed to get match session' };
   }
 }

@@ -45,8 +45,7 @@ export default function MatchPage() {
     gameError,
     joinMatch,
     makeMove,
-    refreshMatch,
-    refreshGame,
+    refresh, // Single refresh function now
     realtimeStatus,
     isGameStarting,
   } = useMatchSession(matchId);
@@ -128,8 +127,7 @@ export default function MatchPage() {
   };
 
   const handleManualRefresh = () => {
-    refreshMatch();
-    refreshGame();
+    refresh();
     setNotification('Refreshing...');
   };
 

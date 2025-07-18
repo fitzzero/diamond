@@ -280,11 +280,7 @@ export default function HomePage() {
             Your Matches
           </Typography>
 
-          {matchesLoading ? (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Typography>Loading your matches...</Typography>
-            </Box>
-          ) : !userMatches || userMatches.length === 0 ? (
+          {userMatches.length === 0 ? (
             <Alert severity="info" sx={{ mb: 3 }}>
               <Typography variant="h6">No matches yet!</Typography>
               <Typography>

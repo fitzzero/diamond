@@ -149,12 +149,6 @@ export interface MakeMoveResult {
   error?: string;
 }
 
-export interface GameStateResult {
-  success: boolean;
-  gameState?: EnhancedGameState;
-  error?: string;
-}
-
 export interface UserMatchesResult {
   success: boolean;
   matches?: MatchWithPlayers[];
@@ -164,6 +158,14 @@ export interface UserMatchesResult {
 export interface GetMatchResult {
   success: boolean;
   match?: MatchWithPlayers;
+  error?: string;
+}
+
+// Unified match session result for single polling source
+export interface MatchSessionResult {
+  success: boolean;
+  match?: MatchWithPlayers;
+  game?: EnhancedGameState;
   error?: string;
 }
 
@@ -205,12 +207,6 @@ export interface RealtimeStatus {
 }
 
 // === HOOK CONFIGURATION TYPES ===
-
-export interface UseGameOptions {
-  realtime?: boolean;
-  pollInterval?: number;
-  enableOptimisticUpdates?: boolean;
-}
 
 export interface UseMatchOptions {
   realtime?: boolean;

@@ -76,16 +76,7 @@ export const swrUtils = {
     // For now, we'll rely on the refresh methods in hooks
   },
 
-  // Preload game data
-  preloadGame: async (gameId: string) => {
-    try {
-      const { getGameState } = await import('@/lib/actions/gameActions');
-      return await getGameState(gameId);
-    } catch (error) {
-      console.error('Failed to preload game:', error);
-      return null;
-    }
-  },
+  // 🚨 REMOVED: preloadGame - use unified match session instead
 };
 
 // Real-time update utilities (for future Prisma Pulse integration)

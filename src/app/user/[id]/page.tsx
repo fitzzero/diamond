@@ -72,10 +72,8 @@ export default function UserProfilePage() {
   const { matches: userMatchesResult, isLoading: matchesLoading } =
     useUserMatches();
 
-  // Extract matches array from the result
-  const userMatches = (userMatchesResult as any)?.success
-    ? (userMatchesResult as any).matches
-    : [];
+  // Since useUserMatches is temporarily disabled, handle empty state gracefully
+  const userMatches: any[] = userMatchesResult || [];
 
   const isOwnProfile = currentUser?.id === userId;
 

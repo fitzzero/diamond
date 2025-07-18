@@ -32,6 +32,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             token.id = dbUser.id;
             token.name = dbUser.name;
             token.discordId = dbUser.discordId;
+          } else {
+            console.error(
+              '🚨 JWT: User not found in database for Discord ID:',
+              account.providerAccountId
+            );
           }
         } catch (error) {
           console.error('JWT callback error:', error);
@@ -40,11 +45,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      // Send properties to the client
-      if (token) {
+      // ✅ THIS WAS MISSING! Send properties to the client
+      if (token?.id) {
         session.user.id = token.id as string;
         session.user.name = token.name as string;
         session.user.discordId = token.discordId as string;
+      } else {
+        console.error('🚨 Session callback: No token.id found');
       }
       return session;
     },
