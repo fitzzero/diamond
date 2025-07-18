@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    // Enable server actions for game moves
-    serverActions: true,
+    // Server actions are enabled by default in Next.js 14+
+    // serverActions: true, // No longer needed
   },
   // Optimize images for chess pieces and board
   images: {
@@ -33,9 +33,9 @@ const nextConfig = {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
-      }
+      };
     }
-    return config
+    return config;
   },
   // Enable source maps in development
   ...(process.env.NODE_ENV === 'development' && {
@@ -49,6 +49,6 @@ const nextConfig = {
       ignoreDuringBuilds: false,
     },
   }),
-}
+};
 
-module.exports = nextConfig 
+module.exports = nextConfig;

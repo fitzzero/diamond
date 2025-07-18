@@ -6,135 +6,95 @@ import {
   Container,
   Button,
   Stack,
-  Avatar,
+  Card,
+  CardContent,
+  CardActions,
   Chip,
+  Alert,
 } from '@mui/material';
 import {
   DiamondOutlined,
   PlayArrow,
   Person,
-  Logout,
+  Add,
+  Visibility,
 } from '@mui/icons-material';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserMatches } from '@/hooks/useGame';
+import { MainLayout } from '@/components/layout';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function HomePage() {
-  const { user, isAuthenticated, isLoading, signIn, signOut } = useAuth();
+  const { user, isAuthenticated, isLoading, signIn } = useAuth();
+  const { matches: userMatchesResult, isLoading: matchesLoading } =
+    useUserMatches();
+  const router = useRouter();
+
+  // Extract matches array from the result (with type safety)
+  const userMatches = (userMatchesResult as any)?.success
+    ? (userMatchesResult as any).matches
+    : [];
 
   const handleSignIn = () => {
     signIn('discord');
   };
 
-  const handleSignOut = () => {
-    signOut();
+  const handleCreateMatch = () => {
+    // TODO: Implement create match logic
+    console.log('Create match clicked');
   };
 
-  return (
-    <Container maxWidth="lg">
-      <Box
-        sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          textAlign: 'center',
-          py: 4,
-        }}
-      >
-        {/* User Status */}
-        {isAuthenticated && user && (
-          <Box sx={{ position: 'absolute', top: 20, right: 20 }}>
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Avatar
-                src={user.image || undefined}
-                sx={{ width: 40, height: 40 }}
-              >
-                {user.name?.[0]?.toUpperCase()}
-              </Avatar>
-              <Stack spacing={0.5}>
-                <Typography variant="body2" color="text.primary">
-                  {user.name}
-                </Typography>
-                <Chip
-                  label="Online"
-                  size="small"
-                  color="success"
-                  sx={{ fontSize: '0.7rem', height: 20 }}
-                />
-              </Stack>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<Logout />}
-                onClick={handleSignOut}
-                sx={{ ml: 2 }}
-              >
-                Sign Out
-              </Button>
-            </Stack>
-          </Box>
-        )}
-
-        {/* Hero Section */}
-        <Box sx={{ mb: 6 }}>
-          <DiamondOutlined
+  if (!isAuthenticated) {
+    return (
+      <MainLayout showBackground={false}>
+        <Container maxWidth="lg">
+          <Box
             sx={{
-              fontSize: 120,
-              color: 'primary.main',
-              mb: 2,
-              transform: 'rotate(45deg)',
-            }}
-          />
-          <Typography
-            variant="h1"
-            component="h1"
-            sx={{
-              mb: 2,
-              background: 'linear-gradient(45deg, #f5f5dc, #cd853f)',
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
+              minHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
+              textAlign: 'center',
+              py: 4,
             }}
           >
-            Diamond Chess
-          </Typography>
-          <Typography
-            variant="h5"
-            component="h2"
-            color="text.secondary"
-            sx={{ mb: 4, maxWidth: 600 }}
-          >
-            Experience chess like never before on a rotated board with unique
-            pawn mechanics
-          </Typography>
-        </Box>
+            {/* Hero Section */}
+            <Box sx={{ mb: 6 }}>
+              <DiamondOutlined
+                sx={{
+                  fontSize: 120,
+                  color: 'primary.main',
+                  mb: 2,
+                  transform: 'rotate(45deg)',
+                }}
+              />
+              <Typography
+                variant="h1"
+                component="h1"
+                sx={{
+                  mb: 2,
+                  background: 'linear-gradient(45deg, #f5f5dc, #cd853f)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
+                Diamond Chess
+              </Typography>
+              <Typography
+                variant="h5"
+                component="h2"
+                color="text.secondary"
+                sx={{ mb: 4, maxWidth: 600 }}
+              >
+                Experience chess like never before on a rotated board with
+                unique pawn mechanics
+              </Typography>
+            </Box>
 
-        {/* Action Buttons */}
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={3}
-          sx={{ mb: 6 }}
-        >
-          {isAuthenticated ? (
-            <Button
-              variant="contained"
-              size="large"
-              startIcon={<PlayArrow />}
-              disabled={isLoading}
-              sx={{
-                px: 4,
-                py: 1.5,
-                fontSize: '1.1rem',
-                background: 'linear-gradient(45deg, #f5f5dc, #cd853f)',
-                color: '#1a1a1a',
-                '&:hover': {
-                  background: 'linear-gradient(45deg, #fffef7, #deb887)',
-                },
-              }}
-            >
-              Create Match
-            </Button>
-          ) : (
+            {/* Sign In Button */}
             <Button
               variant="contained"
               size="large"
@@ -150,40 +110,185 @@ export default function HomePage() {
                 '&:hover': {
                   background: 'linear-gradient(45deg, #fffef7, #deb887)',
                 },
+                mb: 6,
               }}
             >
               {isLoading ? 'Loading...' : 'Sign In with Discord'}
             </Button>
-          )}
-        </Stack>
 
-        {/* Game Rules Preview */}
-        <Box
-          sx={{
-            backgroundColor: 'background.paper',
-            borderRadius: 2,
-            p: 4,
-            maxWidth: 800,
-            border: '1px solid',
-            borderColor: 'primary.main',
-            borderOpacity: 0.2,
-          }}
-        >
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            How It Works
+            {/* Game Rules Preview */}
+            <Box
+              sx={{
+                backgroundColor: 'background.paper',
+                borderRadius: 2,
+                p: 4,
+                maxWidth: 800,
+                border: '1px solid',
+                borderColor: 'primary.main',
+                borderOpacity: 0.2,
+              }}
+            >
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                How Diamond Chess Works
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+                Diamond Chess transforms the classic game by rotating the board
+                45 degrees, creating a diamond orientation that changes how
+                pieces move and interact. Pawns have unique movement patterns in
+                this orientation!
+              </Typography>
+              <Button
+                component={Link}
+                href="/board-test"
+                variant="outlined"
+                startIcon={<Visibility />}
+                sx={{ mt: 2 }}
+              >
+                See the Board
+              </Button>
+            </Box>
+          </Box>
+        </Container>
+      </MainLayout>
+    );
+  }
+
+  return (
+    <MainLayout>
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        {/* Welcome Section */}
+        <Box sx={{ mb: 4, textAlign: 'center' }}>
+          <Typography variant="h4" gutterBottom>
+            Welcome back, {user?.name}! 👋
           </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-            Diamond Chess transforms the classic game by rotating the board 45
-            degrees, creating a diamond orientation that changes how pieces move
-            and interact.
+          <Typography variant="body1" color="text.secondary">
+            Ready to play some Diamond Chess?
           </Typography>
-          {isAuthenticated && (
-            <Typography variant="body2" color="success.main" sx={{ mt: 2 }}>
-              Welcome back, {user?.name}! Ready to play some Diamond Chess?
-            </Typography>
+        </Box>
+
+        {/* Quick Actions */}
+        <Box sx={{ mb: 6, textAlign: 'center' }}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={3}
+            justifyContent="center"
+          >
+            <Button
+              variant="contained"
+              size="large"
+              startIcon={<Add />}
+              onClick={handleCreateMatch}
+              sx={{
+                px: 4,
+                py: 1.5,
+                fontSize: '1.1rem',
+                background: 'linear-gradient(45deg, #f5f5dc, #cd853f)',
+                color: '#1a1a1a',
+                '&:hover': {
+                  background: 'linear-gradient(45deg, #fffef7, #deb887)',
+                },
+              }}
+            >
+              Create New Match
+            </Button>
+            <Button
+              component={Link}
+              href="/board-test"
+              variant="outlined"
+              size="large"
+              startIcon={<Visibility />}
+              sx={{ px: 4, py: 1.5, fontSize: '1.1rem' }}
+            >
+              View Board Test
+            </Button>
+          </Stack>
+        </Box>
+
+        {/* Your Matches Section */}
+        <Box>
+          <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
+            Your Matches
+          </Typography>
+
+          {matchesLoading ? (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography>Loading your matches...</Typography>
+            </Box>
+          ) : !userMatches || userMatches.length === 0 ? (
+            <Alert severity="info" sx={{ mb: 3 }}>
+              <Typography variant="h6">No matches yet!</Typography>
+              <Typography>
+                Create your first match to start playing Diamond Chess.
+              </Typography>
+            </Alert>
+          ) : (
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: {
+                  xs: '1fr',
+                  sm: 'repeat(2, 1fr)',
+                  md: 'repeat(3, 1fr)',
+                },
+                gap: 3,
+              }}
+            >
+              {userMatches.map((match: any) => (
+                <Card
+                  key={match.id}
+                  sx={{
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    transition: 'transform 0.2s',
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                    },
+                  }}
+                >
+                  <CardContent sx={{ flexGrow: 1 }}>
+                    <Typography variant="h6" gutterBottom>
+                      Match #{match.id.slice(-6)}
+                    </Typography>
+                    <Stack spacing={1}>
+                      <Chip
+                        label={match.status.replace('_', ' ').toUpperCase()}
+                        color={
+                          match.status === 'IN_PROGRESS'
+                            ? 'success'
+                            : match.status === 'WAITING_FOR_PLAYER'
+                              ? 'warning'
+                              : 'default'
+                        }
+                        size="small"
+                      />
+                      <Typography variant="body2" color="text.secondary">
+                        Created:{' '}
+                        {new Date(match.createdAt).toLocaleDateString()}
+                      </Typography>
+                      {match.games && match.games.length > 0 && (
+                        <Typography variant="body2" color="text.secondary">
+                          Game #{match.games[0].gameNumber}
+                        </Typography>
+                      )}
+                    </Stack>
+                  </CardContent>
+                  <CardActions>
+                    <Button
+                      component={Link}
+                      href={`/match/${match.id}`}
+                      size="small"
+                      startIcon={<PlayArrow />}
+                    >
+                      {match.status === 'WAITING_FOR_PLAYER' ? 'Join' : 'View'}
+                    </Button>
+                  </CardActions>
+                </Card>
+              ))}
+            </Box>
           )}
         </Box>
-      </Box>
-    </Container>
+      </Container>
+    </MainLayout>
   );
 }

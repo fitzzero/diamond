@@ -89,36 +89,7 @@ export const swrUtils = {
 };
 
 // Real-time update utilities (for future Prisma Pulse integration)
-export const realtimeUtils = {
-  // Setup game subscription with Prisma Pulse (placeholder)
-  setupGameSubscription: (gameId: string, onUpdate: (data: any) => void) => {
-    // TODO: Implement with Prisma Pulse for true real-time subscriptions
-    // Prisma Pulse provides WebSocket-based database change subscriptions
-
-    // For now, return a cleanup function
-    return () => {
-      // Cleanup subscription
-    };
-  },
-
-  // Check connection status (enhanced for Accelerate)
-  isConnected: () => {
-    // With Prisma Accelerate: connection pooling is handled automatically
-    // With Prisma Pulse: would check WebSocket connection status
-    return true;
-  },
-
-  // Reconnect logic (for future Pulse integration)
-  reconnect: () => {
-    // TODO: Implement reconnection logic for Prisma Pulse
-    console.log(
-      'Accelerate: Using connection pooling, no manual reconnection needed'
-    );
-  },
-
-  // Performance: Leverage Accelerate caching
-  getCacheStats: () => {
-    // TODO: Add metrics when available from Accelerate
-    return { hits: 0, misses: 0, latency: 0 };
-  },
-};
+// Real-time capabilities are handled by:
+// - Prisma Accelerate: Connection pooling + caching (implemented)
+// - SWR: Smart data fetching with revalidation
+// - Future: Could add Prisma Pulse for WebSocket subscriptions if needed

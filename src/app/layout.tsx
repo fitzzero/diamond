@@ -2,6 +2,9 @@ import type { Metadata } from 'next';
 import ThemeProviders from '@/components/providers/ThemeProviders';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 
+// Initialize FontAwesome chess pieces
+import '@/lib/fontawesome';
+
 export const metadata: Metadata = {
   title: 'Diamond Chess',
   description:

@@ -42,12 +42,16 @@ export function useGame(gameId: string | null) {
 
     // Optimistic update
     const currentGame = data;
-    if (currentGame) {
-      // Update the board state optimistically
+    if (currentGame?.success && currentGame.gameState) {
+      // Update the game state optimistically
       mutate(
         {
           ...currentGame,
-          currentTurn: currentGame.currentTurn === 'WHITE' ? 'BLACK' : 'WHITE',
+          gameState: {
+            ...currentGame.gameState,
+            currentTurn:
+              currentGame.gameState.currentTurn === 'WHITE' ? 'BLACK' : 'WHITE',
+          },
         },
         false // Don't revalidate immediately
       );
@@ -73,7 +77,7 @@ export function useGame(gameId: string | null) {
   };
 
   return {
-    game: data,
+    game: data?.success ? data.gameState : null,
     isLoading,
     error,
     makeMove: makeGameMove,
@@ -125,7 +129,7 @@ export function useUserMatches() {
   };
 
   return {
-    matches: data || [],
+    matches: data || { success: false, matches: [], error: 'No data' },
     isLoading,
     error,
     createMatch: createNewMatch,
@@ -140,7 +144,11 @@ export function useUserMatches() {
 export function useMatch(matchId: string | null) {
   const { matches, isLoading, error, refresh } = useUserMatches();
 
-  const match = matches?.find((m: any) => m.id === matchId);
+  // Extract actual matches array from the result
+  const matchesArray = (matches as any)?.success
+    ? (matches as any).matches
+    : [];
+  const match = matchesArray?.find((m: any) => m.id === matchId);
 
   return {
     match,

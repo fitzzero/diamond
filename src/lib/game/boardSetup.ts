@@ -10,7 +10,7 @@ import { diamondCoords } from './coordinates';
 /**
  * Diamond Chess Board Setup
  *
- * Standard chess starting position translated to diamond coordinates
+ * Custom Diamond Chess starting position with kings in center positions
  */
 
 export class BoardSetup {
@@ -20,67 +20,107 @@ export class BoardSetup {
   createInitialBoard(): BoardState {
     const board: BoardState = new Map();
 
-    // Setup white pieces (bottom of standard board)
-    this.setupPieces(board, 'WHITE');
-
-    // Setup black pieces (top of standard board)
-    this.setupPieces(board, 'BLACK');
+    // Setup custom Diamond Chess formation
+    this.setupDiamondChessPieces(board);
 
     return board;
   }
 
   /**
-   * Setup pieces for one color
+   * Setup pieces in Diamond Chess formation
+   * Symmetric diamond layout as shown in game-rules.png
    */
-  private setupPieces(board: BoardState, color: PieceColor): void {
-    const isWhite = color === 'WHITE';
+  private setupDiamondChessPieces(board: BoardState): void {
+    // BLACK PIECES (Top of diamond - from top to bottom)
 
-    // Piece arrangement on back rank
-    const backRankPieces: PieceType[] = [
-      'rook',
-      'knight',
-      'bishop',
-      'queen',
-      'king',
-      'bishop',
-      'knight',
-      'rook',
-    ];
+    // Row 1: King (center top)
+    this.placePiece(board, { x: 0, y: -7 }, 'king', 'BLACK');
 
-    // Calculate ranks based on color
-    const backRank = isWhite ? 0 : 7; // 0 for white, 7 for black
-    const pawnRank = isWhite ? 1 : 6; // 1 for white, 6 for black
+    // Row 2: Rook, Rook
+    this.placePiece(board, { x: -1, y: -6 }, 'rook', 'BLACK');
+    this.placePiece(board, { x: 1, y: -6 }, 'rook', 'BLACK');
 
-    // Place back rank pieces
-    for (let file = 0; file < 8; file++) {
-      const pieceType = backRankPieces[file];
-      const standardPos = { file, rank: backRank };
-      const diamondPos = diamondCoords.standardToDiamond(standardPos);
+    // Row 3: Knight, Queen, Bishop (FIXED: Added missing knight left and bishop right)
+    this.placePiece(board, { x: -2, y: -5 }, 'knight', 'BLACK'); // Added missing knight left
+    this.placePiece(board, { x: -1, y: -5 }, 'knight', 'BLACK');
+    this.placePiece(board, { x: 0, y: -5 }, 'queen', 'BLACK');
+    this.placePiece(board, { x: 1, y: -5 }, 'bishop', 'BLACK');
+    this.placePiece(board, { x: 2, y: -5 }, 'bishop', 'BLACK'); // Added missing bishop right
 
-      const piece: Piece = {
-        type: pieceType,
-        color,
-        id: `${color}-${pieceType}-${file}`, // Unique ID
-      };
+    // Row 4: Pawn, Bishop, Knight, Pawn (FIXED: Added missing pawn left, changed pawn to knight)
+    this.placePiece(board, { x: -4, y: -3 }, 'pawn', 'BLACK'); // FIXED: Added missing pawn
+    this.placePiece(board, { x: -3, y: -4 }, 'pawn', 'BLACK'); // Added missing pawn left
+    this.placePiece(board, { x: -2, y: -4 }, 'pawn', 'BLACK');
+    this.placePiece(board, { x: -1, y: -4 }, 'bishop', 'BLACK');
+    this.placePiece(board, { x: 0, y: -4 }, 'knight', 'BLACK');
+    this.placePiece(board, { x: 1, y: -4 }, 'knight', 'BLACK'); // Changed from pawn to knight
+    this.placePiece(board, { x: 2, y: -4 }, 'pawn', 'BLACK');
+    this.placePiece(board, { x: 3, y: -4 }, 'pawn', 'BLACK'); // FIXED: Added missing pawn
+    this.placePiece(board, { x: 4, y: -3 }, 'pawn', 'BLACK'); // FIXED: Added missing pawn
 
-      const key = diamondCoords.positionToKey(diamondPos);
-      board.set(key, piece);
-    }
+    // Row 5: 7 Pawns (FIXED: Added missing pawns to make full row)
+    this.placePiece(board, { x: -3, y: -3 }, 'pawn', 'BLACK'); // Added missing pawn
+    this.placePiece(board, { x: -2, y: -3 }, 'pawn', 'BLACK');
+    this.placePiece(board, { x: -1, y: -3 }, 'pawn', 'BLACK');
+    this.placePiece(board, { x: 0, y: -3 }, 'pawn', 'BLACK');
+    this.placePiece(board, { x: 1, y: -3 }, 'pawn', 'BLACK');
+    this.placePiece(board, { x: 2, y: -3 }, 'pawn', 'BLACK');
+    this.placePiece(board, { x: 3, y: -3 }, 'pawn', 'BLACK'); // Added missing pawn
 
-    // Place pawns
-    for (let file = 0; file < 8; file++) {
-      const standardPos = { file, rank: pawnRank };
-      const diamondPos = diamondCoords.standardToDiamond(standardPos);
+    // WHITE PIECES (Bottom of diamond - mirrored formation)
 
-      const piece: Piece = {
-        type: 'pawn',
-        color,
-        id: `${color}-pawn-${file}`,
-      };
+    // Row 5: 7 Pawns (FIXED: Added missing pawns to make full row)
+    this.placePiece(board, { x: -3, y: 3 }, 'pawn', 'WHITE'); // Added missing pawn
+    this.placePiece(board, { x: -2, y: 3 }, 'pawn', 'WHITE');
+    this.placePiece(board, { x: -1, y: 3 }, 'pawn', 'WHITE');
+    this.placePiece(board, { x: 0, y: 3 }, 'pawn', 'WHITE');
+    this.placePiece(board, { x: 1, y: 3 }, 'pawn', 'WHITE');
+    this.placePiece(board, { x: 2, y: 3 }, 'pawn', 'WHITE');
+    this.placePiece(board, { x: 3, y: 3 }, 'pawn', 'WHITE'); // Added missing pawn
 
-      const key = diamondCoords.positionToKey(diamondPos);
-      board.set(key, piece);
-    }
+    // Row 4: Pawn, Knight, Bishop, Pawn (FIXED: Mirrored the black side fixes)
+    this.placePiece(board, { x: -4, y: 3 }, 'pawn', 'WHITE'); // FIXED: Added missing pawn
+    this.placePiece(board, { x: -3, y: 4 }, 'pawn', 'WHITE'); // Added missing pawn left
+    this.placePiece(board, { x: -2, y: 4 }, 'pawn', 'WHITE');
+    this.placePiece(board, { x: -1, y: 4 }, 'knight', 'WHITE'); // Changed from knight to match mirror
+    this.placePiece(board, { x: 0, y: 4 }, 'bishop', 'WHITE');
+    this.placePiece(board, { x: 1, y: 4 }, 'bishop', 'WHITE'); // FIXED: Changed from knight to bishop
+    this.placePiece(board, { x: 2, y: 4 }, 'pawn', 'WHITE');
+    this.placePiece(board, { x: 3, y: 4 }, 'pawn', 'WHITE'); // FIXED: Added missing pawn
+    this.placePiece(board, { x: 4, y: 3 }, 'pawn', 'WHITE'); // FIXED: Added missing pawn
+
+    // Row 3: Bishop, Queen, Knight (FIXED: Added missing pieces to mirror black)
+    this.placePiece(board, { x: -2, y: 5 }, 'bishop', 'WHITE'); // Added missing bishop left
+    this.placePiece(board, { x: -1, y: 5 }, 'bishop', 'WHITE');
+    this.placePiece(board, { x: 0, y: 5 }, 'queen', 'WHITE');
+    this.placePiece(board, { x: 1, y: 5 }, 'knight', 'WHITE');
+    this.placePiece(board, { x: 2, y: 5 }, 'knight', 'WHITE'); // Added missing knight right
+
+    // Row 2: Rook, Rook
+    this.placePiece(board, { x: -1, y: 6 }, 'rook', 'WHITE');
+    this.placePiece(board, { x: 1, y: 6 }, 'rook', 'WHITE');
+
+    // Row 1: King (center bottom)
+    this.placePiece(board, { x: 0, y: 7 }, 'king', 'WHITE');
+  }
+
+  /**
+   * Helper method to place a piece on the board
+   */
+  private placePiece(
+    board: BoardState,
+    position: DiamondPosition,
+    type: PieceType,
+    color: PieceColor
+  ): void {
+    const piece: Piece = {
+      type,
+      color,
+      id: `${color}-${type}-${position.x},${position.y}`,
+    };
+
+    const key = diamondCoords.positionToKey(position);
+    board.set(key, piece);
   }
 
   /**
