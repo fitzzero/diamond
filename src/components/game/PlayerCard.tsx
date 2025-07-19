@@ -158,7 +158,7 @@ export default function PlayerCard({
   if (!isInMatchRoute) {
     // White player (bottom-right): Current user or sign in CTA
     if (color === 'WHITE') {
-      const whiteContent = (
+      const whiteContent = isMobile ? null : (
         <Stack direction="row" spacing={1} alignItems="center">
           <Avatar
             src={isAuthenticated && user ? user.image || undefined : undefined}
@@ -247,7 +247,7 @@ export default function PlayerCard({
     }
 
     // Black player (top-left): Create match CTA
-    const blackContent = (
+    const blackContent = isMobile ? null : (
       <Stack direction="row" spacing={1} alignItems="center">
         <Avatar
           sx={{

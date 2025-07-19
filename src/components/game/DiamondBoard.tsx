@@ -316,7 +316,7 @@ export default function DiamondBoard({
   }, []);
 
   // Calculate board dimensions with better mobile sizing
-  const squareSize = isMobile ? 42 : 60; // Larger mobile squares for better touch targets
+  const squareSize = isMobile ? 36 : 60; // Larger mobile squares for better touch targets
   const boardSize = squareSize * 15; // Enough space for the diamond
   const pieceSize = isMobile ? 32 : 36; // Optimized piece sizing
 
