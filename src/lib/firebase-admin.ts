@@ -12,24 +12,14 @@ if (getApps().length === 0) {
     if (serviceAccountKey) {
       let serviceAccount;
 
-      // Check if it's a JSON string or file path
+      // For production builds, only support JSON string format to avoid webpack warnings
       if (serviceAccountKey.trim().startsWith('{')) {
         // It's a JSON string - parse it
         serviceAccount = JSON.parse(serviceAccountKey);
         console.log('🔑 Loading service account from JSON string');
-      } else if (
-        serviceAccountKey.startsWith('./') ||
-        serviceAccountKey.startsWith('/')
-      ) {
-        // It's a file path - load from file
-        const path = serviceAccountKey.startsWith('./')
-          ? require('path').resolve(process.cwd(), serviceAccountKey)
-          : serviceAccountKey;
-        serviceAccount = require(path);
-        console.log('🔑 Loading service account from file:', path);
       } else {
         throw new Error(
-          'Invalid service account key format. Must be JSON string or file path.'
+          'FIREBASE_SERVICE_ACCOUNT_KEY must be a JSON string. File paths are not supported in production builds.'
         );
       }
 
