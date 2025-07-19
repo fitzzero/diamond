@@ -7,8 +7,8 @@ import '@/lib/fontawesome';
 
 export const metadata: Metadata = {
   title: 'Diamond Chess',
-  description:
-    'A unique chess variant played on a rotated board with modified pawn mechanics',
+  description: 'Random chess variants',
+  icons: '/icon.png',
   keywords: ['chess', 'game', 'strategy', 'diamond', 'board game'],
   authors: [{ name: 'Diamond Chess Team' }],
   creator: 'Diamond Chess',
@@ -18,11 +18,11 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL('https://diamond-chess.vercel.app'),
+  metadataBase: new URL('https://chess.logan.gg'),
   openGraph: {
     title: 'Diamond Chess',
-    description: 'A unique chess variant played on a rotated board',
-    url: 'https://diamond-chess.vercel.app',
+    description: 'Random chess variants',
+    url: 'https://chess.logan.gg',
     siteName: 'Diamond Chess',
     locale: 'en_US',
     type: 'website',
