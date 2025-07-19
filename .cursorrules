@@ -2,7 +2,7 @@
 
 ## Project Architecture
 
-This is a Diamond Chess project built with Next.js 14 App Router, Material-UI v5, Prisma ORM, and NextAuth.js v5.
+This is a completed Diamond Chess web application built with Next.js 14 App Router, Material-UI v5, Firebase/Firestore, and NextAuth.js v5. The project features real-time multiplayer chess with a unique 45° diamond board orientation, stunning animations, and a polished user experience.
 
 ## Component Guidelines
 
@@ -10,7 +10,7 @@ This is a Diamond Chess project built with Next.js 14 App Router, Material-UI v5
 
 - Keep components under 400 lines of code - abstract into sub-components when approaching this limit
 - Break complex components into logical sub-components with clear responsibilities
-- Use meaningful component names that describe their purpose (e.g., `GameBoard`, `PieceSelector`, `MoveHistory`)
+- Use meaningful component names that describe their purpose (e.g., `DiamondBoard`, `PlayerCard`, `MoveHistory`)
 
 ### Material-UI Best Practices
 
@@ -37,12 +37,13 @@ This is a Diamond Chess project built with Next.js 14 App Router, Material-UI v5
 - Use theme breakpoints, palette, spacing, and typography consistently
 - Minimize custom `sx` props - leverage MUI's built-in design system
 
-### Global Styles
+### Animation Guidelines
 
-- Abstract reusable styles, animations, and design tokens to the MUI theme (`src/lib/theme.ts`)
-- Use theme.palette for consistent colors across the chess-inspired design
-- Define common spacing, typography, and component variants in the theme
-- Create custom MUI theme variants for chess-specific UI elements (board, pieces, etc.)
+- Use CSS keyframes for smooth entrance animations (board, pieces, UI elements)
+- Implement proper timing with `cubic-bezier` easing for natural movement
+- Coordinate multi-element animations with staggered delays
+- Always provide animation disable options via `skipAnimation` props
+- Keep animations under 2 seconds for good UX
 
 ### Component Styling
 
@@ -52,67 +53,90 @@ This is a Diamond Chess project built with Next.js 14 App Router, Material-UI v5
 
 ## State Management & Data Fetching
 
-### SWR Integration
+### Firebase Integration
 
-- Use useSWR for all hooks that fetch server data
-- Create custom hooks that wrap useSWR for type safety and reusability:
-  - `useCurrentUser()` - current authenticated user
-  - `useUser(id)` - specific user data
-  - `useMatch(id)` - match data with real-time updates
-  - `useGame(id)` - game state and moves
-- Configure SWR with proper error handling and loading states
-- Implement proper cache invalidation strategies for game moves
+- Use Firebase hooks for real-time data subscriptions:
+  - `useMatchSessionRealtime()` - live match data with real-time updates
+  - `useUserMatchesRealtime()` - user's match list with live updates
+  - Custom Firestore listeners for game state changes
+- Configure proper error handling and loading states
+- Implement efficient cache management with Firebase offline persistence
 
-### Server Actions
+### Real-time Features
 
-- Use Next.js Server Actions instead of API routes where possible
-- Mark server functions with 'use server' directive
-- Implement proper error handling and validation in server actions
-- Use Prisma's type helpers for consistent data schemas
+- Leverage Firestore's real-time listeners for live game updates
+- Handle connection states and offline scenarios gracefully
+- Use optimistic updates for better UX while maintaining server authority
+- Implement proper cleanup of listeners to prevent memory leaks
 
-## Database & Prisma
+### Custom Hooks
+
+- Create reusable hooks that wrap Firebase operations:
+  - `useAuth()` - authentication state management
+  - `useLocalGame()` - local demo game logic
+  - `useBreakpoints()` - responsive design utilities
+
+## Database & Firestore
+
+### Data Structure
+
+- Use Firestore collections for matches, games, and users
+- Implement proper security rules in `firestore.rules`
+- Structure data for efficient querying and real-time updates
+- Use subcollections for nested data like game moves
 
 ### Type Safety
 
-- Always use Prisma-generated types for consistency
-- Leverage Prisma's select and include for efficient queries
-- Use Prisma's transaction API for complex operations (e.g., game moves)
-- Implement proper error handling for Prisma operations
+- Always use TypeScript interfaces for Firestore data
+- Create proper types in `src/types/` for all game entities
+- Use Firebase's TypeScript helpers for consistent data schemas
+- Implement proper error handling for Firestore operations
 
 ### Performance
 
-- Use select and include judiciously to avoid over-fetching
-- Implement pagination with take and skip for large datasets
-- Be mindful of N+1 query problems
+- Use compound queries efficiently
+- Implement pagination for large datasets
+- Be mindful of read/write costs
+- Utilize Firestore's offline capabilities
 
 ## Authentication & Security
 
-### NextAuth.js v5
+### NextAuth.js v5 with Firebase
 
 - Follow NextAuth.js v5 patterns (handlers, not pages)
-- Use the auth() helper for protected routes
+- Use Firebase Auth providers (Discord, Google, etc.)
 - Implement proper session management and user context
+- Use the `useAuth()` hook for authentication state
 
 ### Data Validation
 
-- Validate all user inputs before database operations
+- Validate all user inputs before Firestore operations
 - Use Zod or similar for runtime type validation
-- Never expose raw Prisma client in client components
+- Never expose sensitive Firebase config in client components
+- Implement proper Firestore security rules
 
 ## Game Logic
 
 ### Move Validation
 
-- Always validate moves server-side for security
+- Always validate moves server-side using Firebase Cloud Functions
 - Implement proper turn management and game state validation
-- Store board state as JSON with proper serialization/deserialization
-- Use optimistic updates for better UX while maintaining server authority
+- Store board state efficiently in Firestore documents
+- Use transaction writes for atomic game state updates
 
-### Real-time Updates
+### Diamond Chess Specifics
 
-- Leverage SWR's revalidation for pseudo-real-time updates
-- Plan for Prisma Accelerate integration for true real-time features
-- Handle connection states and offline scenarios gracefully
+- Handle 45° coordinate system transformation correctly
+- Implement proper pawn movement rules (NW/NE for white, SW/SE for black)
+- Use the coordinate conversion system in `src/lib/game/coordinates.ts`
+- Store move history with proper notation for the diamond board
+
+### Visual Feedback
+
+- Implement subtle highlighting for last moved pieces (warning colors)
+- Show turn indicators for all users (players and spectators)
+- Use animations for board entrance and piece movements
+- Provide clear visual feedback for game states (check, checkmate, etc.)
 
 ## File Organization
 
@@ -122,12 +146,14 @@ This is a Diamond Chess project built with Next.js 14 App Router, Material-UI v5
 - Place reusable hooks in `src/hooks/`
 - Store types in `src/types/`
 - Use barrel exports (index.ts) for clean imports
+- Keep Firebase configuration in `src/lib/firebase.ts`
 
 ### Naming Conventions
 
 - Use PascalCase for component files and React components
 - Use camelCase for hooks, utilities, and variables
 - Use descriptive names that reflect the chess/game domain
+- Prefix Firebase-related files clearly
 
 ## Code Quality
 
@@ -137,6 +163,7 @@ This is a Diamond Chess project built with Next.js 14 App Router, Material-UI v5
 - Use proper dependency arrays in useEffect and useMemo
 - Implement proper error boundaries for game state errors
 - Use React.memo() for expensive components that re-render frequently
+- Maximize parallel tool calls where possible for better performance
 
 ### TypeScript
 
@@ -150,39 +177,73 @@ This is a Diamond Chess project built with Next.js 14 App Router, Material-UI v5
 - Implement code splitting for large components
 - Use dynamic imports for heavy dependencies
 - Optimize re-renders with proper memoization
-- Consider virtualization for large game history lists
+- Use Firestore's built-in caching effectively
 
-## Testing Considerations
+## Mobile & Responsive Design
 
-### Unit Testing
+### Touch Interactions
 
-- Test game logic functions in isolation
-- Mock Prisma client for database-dependent tests
-- Test component rendering with proper props and state
+- Implement proper touch handlers for mobile chess piece movement
+- Use larger touch targets (44px minimum) for mobile pieces
+- Disable HTML5 drag on mobile in favor of touch events
+- Prevent scroll interference during piece dragging
 
-### Integration Testing
+### Responsive Layout
 
-- Test complete game flows (create match → join → make moves → conclude)
-- Verify server actions work correctly with database
-- Test authentication flows and protected routes
+- Use MUI's breakpoint system consistently
+- Optimize board size and piece sizing for mobile
+- Adjust player card layouts for different screen sizes
+- Test on various devices and orientations
 
 ## Development Workflow
 
+### Version Control
+
 - Use feature branches and descriptive commit messages
-- Run Prisma generate after schema changes
-- Keep database migrations small and focused
-- Test locally before deployment
+- Include emoji prefixes for commit types (✨ features, 🐛 fixes, 🎨 styling)
+- Keep commits focused and atomic
+- Test thoroughly before pushing
 
-## Specific to Diamond Chess
+### Firebase Development
 
-### Board Orientation
+- Use Firebase emulators for local development
+- Keep separate Firebase projects for dev/staging/prod
+- Monitor Firestore usage and costs
+- Regularly review and update security rules
 
-- Remember the 45° rotation affects coordinate systems
-- Implement proper pawn movement rules (NW/NE for white, SW/SE for black)
-- Handle the diamond-shaped board layout in UI components
+## Analytics & Monitoring
 
-### Game State
+### Chess Analytics
 
-- Track turn alternation carefully
-- Implement proper check/checkmate detection for diamond orientation
-- Store move history with proper notation for the rotated board
+- Track game events using the `chessAnalytics` module
+- Monitor piece movements, match creation, and user engagement
+- Use Firebase Analytics for user behavior insights
+- Implement error tracking and performance monitoring
+
+## Production Considerations
+
+### Deployment
+
+- Optimize bundle size with proper code splitting
+- Configure Firebase hosting for optimal performance
+- Set up proper error boundaries and fallbacks
+- Monitor real-time database connections and costs
+
+### Security
+
+- Regularly audit Firestore security rules
+- Implement rate limiting for game actions
+- Validate all server-side operations
+- Monitor for suspicious gaming patterns
+
+## Project Status
+
+This Diamond Chess project is feature-complete with:
+
+- ✅ Real-time multiplayer gameplay
+- ✅ Beautiful diamond board with animations
+- ✅ Mobile-optimized touch controls
+- ✅ User authentication and match management
+- ✅ Spectator mode and match history
+- ✅ Modern UI with Material-UI v5
+- ✅ Production-ready Firebase integration
