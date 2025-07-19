@@ -142,6 +142,10 @@ export default function PlayerCard({
   };
 
   const handleBlackPlayerAction = async () => {
+    if (!isAuthenticated) {
+      signIn('discord');
+      return;
+    }
     try {
       const result = await createMatch();
       if (result.success && result.matchId) {

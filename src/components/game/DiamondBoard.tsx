@@ -113,7 +113,11 @@ function ChessSquare({
 
   const getSquareColor = () => {
     if (isSelected) return theme.palette.warning.main;
-    if (isDragOver && isValidMove) return theme.palette.success.main;
+    if (isDragOver) {
+      return isValidMove
+        ? theme.palette.success.dark
+        : theme.palette.error.main;
+    }
     if (isValidMove) return theme.palette.success.light;
     if (isHighlighted) return theme.palette.info.light;
     if (isLastMovedPiece && piece) {
@@ -152,10 +156,12 @@ function ChessSquare({
   };
 
   const handleDragOver = (e: React.DragEvent) => {
+    onDragOver(chessPosition);
     if (isValidMove && !isAnimating) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-      onDragOver(chessPosition);
+    } else {
+      e.dataTransfer.dropEffect = 'none';
     }
   };
 
@@ -175,7 +181,7 @@ function ChessSquare({
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!onTouchMove || isAnimating) return;
-    e.preventDefault(); // Prevent scrolling
+    e.preventDefault(); // Already there - ensures no overscroll
     const touch = e.touches[0];
     if (touch) {
       onTouchMove(chessPosition, touch);
@@ -644,6 +650,21 @@ export default function DiamondBoard({
     ]
   );
 
+  // Add a global touchmove preventer during active drag
+  useEffect(() => {
+    const preventOverscroll = (e: TouchEvent) => {
+      if (touchState || draggedPiece) {
+        // During active drag
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener('touchmove', preventOverscroll, {
+      passive: false,
+    });
+    return () => document.removeEventListener('touchmove', preventOverscroll);
+  }, [touchState, draggedPiece]);
+
   // Calculate player turn states
   const whitePlayerTurn = currentTurn === 'WHITE';
   const blackPlayerTurn = currentTurn === 'BLACK';
@@ -695,7 +716,9 @@ export default function DiamondBoard({
         height: boardSize,
         overflow: 'visible', // Allow player cards to extend outside
         // Prevent mobile scroll interference
-        touchAction: 'pan-x pan-y', // Allow scrolling but prevent other gestures
+        touchAction: 'none', // Blocks all touch scrolling
+        overscrollBehavior: 'none', // Prevents iOS rubber-banding
+        WebkitOverflowScrolling: 'touch', // Smooth touch for any actual scrolling (if needed)
         // Board container entrance animation
         opacity: animationPhase === 'traditional' && !hasAnimated ? 0 : 1,
         transform:

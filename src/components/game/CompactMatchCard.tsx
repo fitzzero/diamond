@@ -15,6 +15,25 @@ import { PlayArrow, Visibility, EmojiEvents } from '@mui/icons-material';
 import Link from 'next/link';
 import type { MatchWithPlayers } from '@/types/game';
 
+function formatRelativeDate(inputDate: Date | undefined): string {
+  if (!inputDate) return 'Invalid date';
+  const date = inputDate instanceof Date ? inputDate : new Date(inputDate);
+  if (isNaN(date.getTime())) return 'Invalid date';
+  const diff = Date.now() - date.getTime();
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  if (days >= 2) return `${days} days ago`;
+  if (days === 1) return 'Yesterday';
+  if (hours >= 2) return `${hours} hours ago`;
+  if (hours === 1) return '1 hour ago';
+  if (minutes >= 2) return `${minutes} minutes ago`;
+  if (minutes === 1) return '1 minute ago';
+  if (seconds >= 30) return 'A few moments ago';
+  return 'Just now';
+}
+
 interface CompactMatchCardProps {
   match: MatchWithPlayers;
   currentUserId?: string;
@@ -261,18 +280,13 @@ export default function CompactMatchCard({
             color="text.secondary"
             textAlign="center"
           >
-            {new Date(match.createdAt).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              hour: 'numeric',
-              minute: '2-digit',
-            })}
+            {formatRelativeDate(match.createdAt)}
           </Typography>
         </Stack>
       </CardContent>
 
       {/* Actions */}
-      <CardActions sx={{ pt: 0, justifyContent: 'center' }}>
+      <CardActions sx={{ pt: 0, justifyContent: 'stretch' }}>
         <Button
           component={Link}
           href={`/match/${match.id}`}
@@ -289,7 +303,7 @@ export default function CompactMatchCard({
               ? 'contained'
               : 'outlined'
           }
-          sx={{ fontSize: '0.8rem' }}
+          sx={{ fontSize: '0.8rem', width: '100%' }}
         >
           {match.status === 'WAITING_FOR_PLAYER' && !isParticipant
             ? 'Join'

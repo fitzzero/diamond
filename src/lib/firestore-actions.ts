@@ -44,6 +44,7 @@ import type {
   MatchWithPlayers,
   TurnValidationResult,
 } from '@/types/game';
+import { chessAnalytics } from '@/lib/analytics';
 
 // Helper function to get authenticated user and sync to Firestore
 async function getAuthenticatedUser() {
@@ -683,5 +684,98 @@ export async function getMatchSession(
   } catch (error) {
     console.error('Error getting match session:', error);
     return { success: false, error: 'Failed to get match session' };
+  }
+}
+
+/**
+ * Forfeit a match by resigning, ending the game and awarding win to opponent
+ */
+export async function forfeitMatch(
+  matchId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user?.id) return { success: false, error: 'Not authenticated' };
+
+    // Fetch current game outside transaction to get gameId and data
+    const gamesQuery = query(
+      collection(db, collections.matches, matchId, collections.games),
+      orderBy('gameNumber', 'desc'),
+      limit(1)
+    );
+    const gamesSnapshot = await getDocs(gamesQuery);
+    if (gamesSnapshot.empty) {
+      return { success: false, error: 'No active game found' };
+    }
+
+    const gameDoc = gamesSnapshot.docs[0];
+    const gameId = gameDoc.id;
+    const gameData = gameDoc.data();
+    const moves = gameData.moveHistory?.length || 0;
+    const startedAt = gameData.startedAt?.toDate()?.getTime() || Date.now();
+
+    await runTransaction(db, async transaction => {
+      const matchRef = doc(db, collections.matches, matchId);
+      const matchDocT = await transaction.get(matchRef);
+      if (!matchDocT.exists()) throw new Error('Match not found');
+
+      const matchDataT = matchDocT.data();
+      if (matchDataT.status !== 'IN_PROGRESS')
+        throw new Error('Can only forfeit active matches');
+
+      const isPlayer1 = matchDataT.player1Id === user.id;
+      const isPlayer2 = matchDataT.player2Id === user.id;
+      if (!isPlayer1 && !isPlayer2)
+        throw new Error('You are not a player in this match');
+
+      const opponentId = isPlayer1
+        ? matchDataT.player2Id
+        : matchDataT.player1Id;
+      const result = isPlayer1 ? 'BLACK_WINS' : 'WHITE_WINS';
+
+      const gameRef = doc(
+        db,
+        collections.matches,
+        matchId,
+        collections.games,
+        gameId
+      );
+      const gameDocT = await transaction.get(gameRef);
+      if (!gameDocT.exists()) throw new Error('Game not found');
+
+      transaction.update(gameRef, {
+        status: 'RESIGNATION',
+        result,
+        completedAt: serverTimestamp(),
+      });
+
+      transaction.update(matchRef, {
+        status: 'COMPLETED',
+        winnerId: opponentId,
+        updatedAt: serverTimestamp(),
+      });
+    });
+
+    // Track analytics
+    const duration = (Date.now() - startedAt) / 1000;
+    chessAnalytics.trackGameCompleted(
+      matchId,
+      gameId,
+      'resignation',
+      moves,
+      duration
+    );
+
+    revalidatePath(`/match/${matchId}`);
+    revalidatePath('/');
+    revalidatePath(`/user/${user.id}`);
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error forfeiting match:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to forfeit',
+    };
   }
 }

@@ -11,6 +11,7 @@ import {
   limit,
   Unsubscribe,
   getDoc,
+  QuerySnapshot,
 } from 'firebase/firestore';
 import { useAuth } from '@/hooks/useAuth';
 import { db, collections } from '@/lib/firebase';
@@ -18,6 +19,7 @@ import {
   createMatch,
   joinMatch,
   makeMove as firestoreMakeMove,
+  forfeitMatch,
 } from '@/lib/firestore-actions';
 import { chessAnalytics } from '@/lib/analytics';
 import type {
@@ -77,7 +79,7 @@ export function useUserMatchesRealtime() {
     const unsubscribes: Unsubscribe[] = [];
 
     // Listen to both queries and merge results
-    const matchMap = new Map<string, any>();
+    const matchMap = new Map<string, MatchWithPlayers>();
 
     const updateMatches = () => {
       const allMatches = Array.from(matchMap.values()).sort((a, b) => {
@@ -96,17 +98,76 @@ export function useUserMatchesRealtime() {
       }));
     };
 
+    const processSnapshot = async (snapshot: QuerySnapshot) => {
+      const promises = snapshot.docs.map(async matchDoc => {
+        const matchData = matchDoc.data();
+
+        const [player1Doc, player2Doc] = await Promise.all([
+          getDoc(doc(db, collections.users, matchData.player1Id)),
+          matchData.player2Id
+            ? getDoc(doc(db, collections.users, matchData.player2Id))
+            : Promise.resolve(null),
+        ]);
+
+        const enhancedMatch: MatchWithPlayers = {
+          id: matchDoc.id,
+          status: matchData.status,
+          player1Id: matchData.player1Id,
+          player2Id: matchData.player2Id,
+          winnerId: matchData.winnerId,
+          createdAt: matchData.createdAt?.toDate() || new Date(),
+          updatedAt: matchData.updatedAt?.toDate() || new Date(),
+          player1: player1Doc.exists()
+            ? {
+                id: player1Doc.id,
+                name: (player1Doc.data() as any)?.name || null,
+                email: null,
+                emailVerified: null,
+                image: (player1Doc.data() as any)?.image || null,
+                discordId: (player1Doc.data() as any)?.discordId || null,
+                createdAt:
+                  (player1Doc.data() as any)?.createdAt?.toDate() || new Date(),
+                updatedAt:
+                  (player1Doc.data() as any)?.updatedAt?.toDate() || new Date(),
+              }
+            : {
+                id: matchData.player1Id,
+                name: 'Unknown Player',
+                email: null,
+                emailVerified: null,
+                image: null,
+                discordId: null,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              },
+          player2: player2Doc?.exists()
+            ? {
+                id: player2Doc.id,
+                name: (player2Doc.data() as any)?.name || null,
+                email: null,
+                emailVerified: null,
+                image: (player2Doc.data() as any)?.image || null,
+                discordId: (player2Doc.data() as any)?.discordId || null,
+                createdAt:
+                  (player2Doc.data() as any)?.createdAt?.toDate() || new Date(),
+                updatedAt:
+                  (player2Doc.data() as any)?.updatedAt?.toDate() || new Date(),
+              }
+            : null,
+          games: [],
+        };
+
+        matchMap.set(matchDoc.id, enhancedMatch);
+      });
+
+      await Promise.all(promises);
+      updateMatches();
+    };
+
     const unsubscribe1 = onSnapshot(
       matchesQuery1,
-      snapshot => {
-        snapshot.docs.forEach(doc => {
-          matchMap.set(doc.id, {
-            id: doc.id,
-            ...doc.data(),
-            updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-          });
-        });
-        updateMatches();
+      async snapshot => {
+        await processSnapshot(snapshot);
       },
       error => {
         console.error('Error in matches listener 1:', error);
@@ -120,15 +181,8 @@ export function useUserMatchesRealtime() {
 
     const unsubscribe2 = onSnapshot(
       matchesQuery2,
-      snapshot => {
-        snapshot.docs.forEach(doc => {
-          matchMap.set(doc.id, {
-            id: doc.id,
-            ...doc.data(),
-            updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-          });
-        });
-        updateMatches();
+      async snapshot => {
+        await processSnapshot(snapshot);
       },
       error => {
         console.error('Error in matches listener 2:', error);
@@ -413,6 +467,27 @@ export function useMatchSessionRealtime(matchId: string | null) {
     }
   };
 
+  const forfeit = async () => {
+    if (!matchId) throw new Error('No match ID');
+
+    setIsMakingMove(true);
+
+    try {
+      const result = await forfeitMatch(matchId);
+
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      // Real-time listeners will update the state
+      return result;
+    } catch (error) {
+      throw error;
+    } finally {
+      setIsMakingMove(false);
+    }
+  };
+
   const refresh = useCallback(() => {
     // With real-time listeners, refresh is automatic!
     console.log('🔥 Firestore real-time - no manual refresh needed!');
@@ -432,6 +507,7 @@ export function useMatchSessionRealtime(matchId: string | null) {
     // Actions
     joinMatch: joinMatchWithRealtime,
     makeMove: makeGameMove,
+    forfeit,
 
     // Utilities
     refresh,
@@ -466,4 +542,100 @@ export function useCreateMatch() {
     createMatch: create,
     isCreating,
   };
+}
+
+export function useRecentCompletedMatches() {
+  const [matches, setMatches] = useState<MatchWithPlayers[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsLoading(true);
+
+    const q = query(
+      collection(db, collections.matches),
+      where('status', '==', 'COMPLETED'),
+      where('winnerId', '!=', null), // Only show decisive matches
+      orderBy('winnerId'), // Secondary order to satisfy Firestore index requirements
+      orderBy('updatedAt', 'desc'),
+      limit(5)
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      async snapshot => {
+        const matchPromises = snapshot.docs.map(async matchDoc => {
+          const matchData = matchDoc.data();
+
+          const [player1Doc, player2Doc] = await Promise.all([
+            getDoc(doc(db, collections.users, matchData.player1Id)),
+            matchData.player2Id
+              ? getDoc(doc(db, collections.users, matchData.player2Id))
+              : Promise.resolve(null),
+          ]);
+
+          return {
+            id: matchDoc.id,
+            status: matchData.status,
+            player1Id: matchData.player1Id,
+            player2Id: matchData.player2Id,
+            winnerId: matchData.winnerId,
+            createdAt: matchData.createdAt?.toDate() || new Date(),
+            updatedAt: matchData.updatedAt?.toDate() || new Date(),
+            player1: player1Doc.exists()
+              ? {
+                  id: player1Doc.id,
+                  name: player1Doc.data()?.name || null,
+                  email: null,
+                  emailVerified: null,
+                  image: player1Doc.data()?.image || null,
+                  discordId: player1Doc.data()?.discordId || null,
+                  createdAt:
+                    player1Doc.data()?.createdAt?.toDate() || new Date(),
+                  updatedAt:
+                    player1Doc.data()?.updatedAt?.toDate() || new Date(),
+                }
+              : {
+                  id: matchData.player1Id,
+                  name: 'Unknown',
+                  email: null,
+                  emailVerified: null,
+                  image: null,
+                  discordId: null,
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                },
+            player2: player2Doc?.exists()
+              ? {
+                  id: player2Doc.id,
+                  name: player2Doc.data()?.name || null,
+                  email: null,
+                  emailVerified: null,
+                  image: player2Doc.data()?.image || null,
+                  discordId: player2Doc.data()?.discordId || null,
+                  createdAt:
+                    player2Doc.data()?.createdAt?.toDate() || new Date(),
+                  updatedAt:
+                    player2Doc.data()?.updatedAt?.toDate() || new Date(),
+                }
+              : null,
+            games: [],
+          };
+        });
+
+        const recentMatches = await Promise.all(matchPromises);
+        setMatches(recentMatches);
+        setIsLoading(false);
+      },
+      err => {
+        console.error('Error fetching recent matches:', err);
+        setError('Failed to load recent matches');
+        setIsLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  return { matches, isLoading, error };
 }

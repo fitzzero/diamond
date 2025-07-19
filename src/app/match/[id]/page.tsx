@@ -55,6 +55,7 @@ export default function MatchPage() {
     refresh, // Single refresh function now
     realtimeStatus,
     isGameStarting,
+    forfeit,
   } = useMatchSessionRealtime(matchId);
 
   // Cast to expected type (Firestore data structure is compatible)
@@ -163,6 +164,25 @@ export default function MatchPage() {
   const handleManualRefresh = () => {
     refresh();
     setNotification('Refreshing...');
+  };
+
+  const handleForfeit = async () => {
+    if (
+      !confirm(
+        'Are you sure you want to forfeit? This will give the win to your opponent.'
+      )
+    )
+      return;
+
+    try {
+      await forfeit();
+      setNotification('You have forfeited the match. Redirecting...');
+      setTimeout(() => router.push('/'), 2000);
+    } catch (error) {
+      setNotification(
+        error instanceof Error ? error.message : 'Failed to forfeit'
+      );
+    }
   };
 
   const handleSquareClick = (position: ChessPosition) => {
@@ -469,13 +489,26 @@ export default function MatchPage() {
             <Typography variant="h6" gutterBottom>
               Match Actions
             </Typography>
-            <Button
-              variant="outlined"
-              startIcon={<ExitToApp />}
-              onClick={() => router.push('/')}
-            >
-              Leave Match
-            </Button>
+            {isAuthenticated &&
+            isParticipant &&
+            match.status === 'IN_PROGRESS' ? (
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<ExitToApp />}
+                onClick={handleForfeit}
+              >
+                Forfeit Match
+              </Button>
+            ) : (
+              <Button
+                variant="outlined"
+                startIcon={<ExitToApp />}
+                onClick={() => router.push('/')}
+              >
+                Leave Match
+              </Button>
+            )}
           </CardContent>
         </Card>
 
