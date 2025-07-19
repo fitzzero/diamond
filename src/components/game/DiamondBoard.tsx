@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Box, useTheme } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { CHESS_ICONS } from '@/lib/fontawesome';
@@ -17,6 +17,8 @@ import { chessCoords } from '@/lib/game/coordinates';
 import PlayerCard from './PlayerCard';
 import { moveValidator } from '@/lib/game/moveValidation';
 import type { Move } from '@/types/game';
+
+type AnimationPhase = 'traditional' | 'animating' | 'diamond';
 
 interface DiamondBoardProps {
   boardState: BoardState;
@@ -51,11 +53,12 @@ interface DiamondBoardProps {
     whitePlayerId: string;
     blackPlayerId: string;
   };
+  // Animation control
+  skipAnimation?: boolean;
 }
 
 interface SquareProps {
   chessPosition: ChessPosition;
-  diamondPosition: DiamondPosition;
   piece?: Piece;
   isLight: boolean;
   isSelected: boolean;
@@ -71,8 +74,9 @@ interface SquareProps {
   onTouchMove?: (chessPos: ChessPosition, touch: React.Touch) => void;
   onTouchEnd?: (chessPos: ChessPosition) => void;
   size: number;
-  left: number;
-  top: number;
+  traditionalPosition: { left: number; top: number };
+  diamondScreenPosition: { left: number; top: number };
+  animationPhase: AnimationPhase;
   readOnly: boolean;
   currentTurn: PieceColor;
   isMobile: boolean;
@@ -80,7 +84,6 @@ interface SquareProps {
 
 function ChessSquare({
   chessPosition,
-  diamondPosition,
   piece,
   isLight,
   isSelected,
@@ -96,8 +99,9 @@ function ChessSquare({
   onTouchMove,
   onTouchEnd,
   size,
-  left,
-  top,
+  traditionalPosition,
+  diamondScreenPosition,
+  animationPhase,
   readOnly,
   currentTurn,
   isMobile,
@@ -114,8 +118,17 @@ function ChessSquare({
 
   const canDragPiece = piece && piece.color === currentTurn && !readOnly;
 
+  // Calculate current position and rotation based on animation phase
+  const isTraditional = animationPhase === 'traditional';
+  const isAnimating = animationPhase === 'animating';
+  const currentPosition = isTraditional
+    ? traditionalPosition
+    : diamondScreenPosition;
+  const squareRotation = isTraditional ? 0 : 45;
+  const pieceRotation = isTraditional ? 0 : -45;
+
   const handleDragStart = (e: React.DragEvent) => {
-    if (!canDragPiece) {
+    if (!canDragPiece || isAnimating) {
       e.preventDefault();
       return;
     }
@@ -132,7 +145,7 @@ function ChessSquare({
   };
 
   const handleDragOver = (e: React.DragEvent) => {
-    if (isValidMove) {
+    if (isValidMove && !isAnimating) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
       onDragOver(chessPosition);
@@ -141,18 +154,20 @@ function ChessSquare({
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    onDrop(chessPosition);
+    if (!isAnimating) {
+      onDrop(chessPosition);
+    }
   };
 
   // Touch event handlers for mobile
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (!canDragPiece || !onTouchStart) return;
+    if (!canDragPiece || !onTouchStart || isAnimating) return;
     e.preventDefault(); // Prevent scrolling
     onTouchStart(chessPosition);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!onTouchMove) return;
+    if (!onTouchMove || isAnimating) return;
     e.preventDefault(); // Prevent scrolling
     const touch = e.touches[0];
     if (touch) {
@@ -161,14 +176,20 @@ function ChessSquare({
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!onTouchEnd) return;
+    if (!onTouchEnd || isAnimating) return;
     e.preventDefault(); // Prevent default behavior
     onTouchEnd(chessPosition);
   };
 
+  const handleClick = () => {
+    if (!isAnimating) {
+      onClick();
+    }
+  };
+
   return (
     <Box
-      onClick={onClick}
+      onClick={handleClick}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onTouchStart={handleTouchStart}
@@ -176,66 +197,85 @@ function ChessSquare({
       onTouchEnd={handleTouchEnd}
       sx={{
         position: 'absolute',
-        left: left,
-        top: top,
+        left: currentPosition.left,
+        top: currentPosition.top,
         width: size,
         height: size,
         backgroundColor: getSquareColor(),
         border: '1px solid rgba(0,0,0,0.1)',
-        cursor: readOnly ? 'default' : 'pointer',
+        cursor: readOnly || isAnimating ? 'default' : 'pointer',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        transition: 'background-color 0.2s ease',
-        transform: 'rotate(45deg)', // Diamond rotation
+        transform: `rotate(${squareRotation}deg)`,
         transformOrigin: 'center',
+        transition: isAnimating
+          ? 'all 1.8s cubic-bezier(0.4, 0, 0.2, 1)'
+          : 'background-color 0.2s ease',
         // Improve mobile touch interaction
-        touchAction: piece && !readOnly ? 'none' : 'auto', // Prevent scrolling when dragging pieces
-        userSelect: 'none', // Prevent text selection
-        WebkitUserSelect: 'none', // Safari
-        '&:hover': !readOnly
-          ? {
-              backgroundColor: theme.palette.action.hover,
-            }
-          : {},
+        touchAction: piece && !readOnly && !isAnimating ? 'none' : 'auto',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        '&:hover':
+          !readOnly && !isAnimating
+            ? {
+                backgroundColor: theme.palette.action.hover,
+              }
+            : {},
       }}
     >
       {piece && (
         <Box
-          draggable={canDragPiece && !isMobile} // Disable HTML5 drag on mobile
+          draggable={canDragPiece && !isMobile && !isAnimating}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           sx={{
-            transform: 'rotate(-45deg)', // Counter-rotate the piece to appear upright
-            fontSize: isMobile ? '1.6rem' : '1.8rem', // Slightly larger on mobile for better touch
+            transform: `rotate(${pieceRotation}deg)`,
+            fontSize: isMobile ? '1.6rem' : '1.8rem',
             color: piece.color === 'WHITE' ? 'white' : 'black',
             textShadow:
               piece.color === 'WHITE'
                 ? '1px 1px 2px rgba(0,0,0,0.7)'
                 : '1px 1px 2px rgba(255,255,255,0.5)',
-            cursor: canDragPiece ? (isMobile ? 'pointer' : 'grab') : 'default',
+            cursor:
+              canDragPiece && !isAnimating
+                ? isMobile
+                  ? 'pointer'
+                  : 'grab'
+                : 'default',
             userSelect: 'none',
             WebkitUserSelect: 'none',
-            touchAction: 'none', // Prevent scrolling and other touch actions
-            transition: 'transform 0.1s ease',
-            // Larger touch target on mobile
-            minWidth: isMobile ? '44px' : 'auto', // iOS HIG recommends 44px minimum
+            touchAction: 'none',
+            transition: isAnimating
+              ? 'transform 1.8s cubic-bezier(0.4, 0, 0.2, 1)'
+              : 'transform 0.1s ease',
+            minWidth: isMobile ? '44px' : 'auto',
             minHeight: isMobile ? '44px' : 'auto',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            // Initial fade-in for pieces (after board appears)
+            opacity: isTraditional ? 0 : 1,
+            animation: isTraditional
+              ? 'piecesFadeIn 0.8s ease-in-out 0.4s forwards'
+              : 'none',
+            '@keyframes piecesFadeIn': {
+              from: { opacity: 0 },
+              to: { opacity: 1 },
+            },
             '&:hover':
-              canDragPiece && !isMobile
+              canDragPiece && !isMobile && !isAnimating
                 ? {
-                    transform: 'rotate(-45deg) scale(1.1)',
+                    transform: `rotate(${pieceRotation}deg) scale(1.1)`,
                   }
                 : {},
-            '&:active': canDragPiece
-              ? {
-                  cursor: isMobile ? 'pointer' : 'grabbing',
-                  transform: 'rotate(-45deg) scale(0.95)',
-                }
-              : {},
+            '&:active':
+              canDragPiece && !isAnimating
+                ? {
+                    cursor: isMobile ? 'pointer' : 'grabbing',
+                    transform: `rotate(${pieceRotation}deg) scale(0.95)`,
+                  }
+                : {},
           }}
         >
           <FontAwesomeIcon
@@ -266,9 +306,16 @@ export default function DiamondBoard({
   matchStatus,
   match,
   game,
+  skipAnimation = false,
 }: DiamondBoardProps) {
   const { isMobile } = useBreakpoints();
   const pathname = usePathname();
+
+  // Animation state management
+  const [animationPhase, setAnimationPhase] = useState<AnimationPhase>(
+    skipAnimation ? 'diamond' : 'traditional'
+  );
+  const [hasAnimated, setHasAnimated] = useState(skipAnimation);
 
   // Coordinate conversion helpers
   const chessToDisplay = useCallback(
@@ -304,6 +351,23 @@ export default function DiamondBoard({
   } | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
 
+  // Animation trigger logic
+  useEffect(() => {
+    if (!hasAnimated && !skipAnimation && animationPhase === 'traditional') {
+      const timer = setTimeout(() => {
+        setAnimationPhase('animating');
+
+        // Complete animation after transition duration
+        setTimeout(() => {
+          setAnimationPhase('diamond');
+          setHasAnimated(true);
+        }, 1800); // Match CSS transition duration
+      }, 1400); // Wait for board entrance + pieces fade-in to complete
+
+      return () => clearTimeout(timer);
+    }
+  }, [hasAnimated, skipAnimation, animationPhase]);
+
   // Generate all valid chess positions for rendering
   const allChessPositions = useMemo(() => {
     const positions: ChessPosition[] = [];
@@ -325,26 +389,49 @@ export default function DiamondBoard({
     return (pos.file + pos.rank) % 2 === 0;
   };
 
-  // Helper function to convert diamond coordinates to screen position
-  const getScreenPosition = (chessPos: ChessPosition) => {
-    const diamondPos = chessToDisplay(chessPos);
+  // Traditional chess board positioning (8x8 grid)
+  const getTraditionalScreenPosition = useCallback(
+    (chessPos: ChessPosition) => {
+      const centerX = boardSize / 2;
+      const centerY = boardSize / 2;
 
-    // Center the board and position squares
-    const centerX = boardSize / 2;
-    const centerY = boardSize / 2;
+      // Standard grid layout - files left to right, ranks bottom to top
+      const screenX = centerX + (chessPos.file - 3.5) * squareSize;
+      const screenY = centerY + (3.5 - chessPos.rank) * squareSize; // Flip Y for chess board orientation
 
-    // For rotated squares (45°), use √2 * squareSize spacing to prevent overlap
-    // This ensures rotated squares touch edge-to-edge without overlapping
-    const diamondSpacing = squareSize * Math.sqrt(2);
-    const screenX = centerX + diamondPos.x * diamondSpacing;
-    // Flip y-coordinate so positive y goes up (white bottom, black top)
-    const screenY = centerY - diamondPos.y * diamondSpacing;
+      return {
+        left: screenX - squareSize / 2,
+        top: screenY - squareSize / 2,
+      };
+    },
+    [boardSize, squareSize]
+  );
 
-    return {
-      left: screenX - squareSize / 2,
-      top: screenY - squareSize / 2,
-    };
-  };
+  // Diamond positioning (existing logic)
+  const getDiamondScreenPosition = useCallback(
+    (chessPos: ChessPosition) => {
+      const diamondPos = chessToDisplay(chessPos);
+
+      // Center the board and position squares
+      const centerX = boardSize / 2;
+      const centerY = boardSize / 2;
+
+      // For rotated squares (45°), use √2 * squareSize spacing to prevent overlap
+      const diamondSpacing = squareSize * Math.sqrt(2);
+      const screenX = centerX + diamondPos.x * diamondSpacing;
+      // Flip y-coordinate so positive y goes up (white bottom, black top)
+      const screenY = centerY - diamondPos.y * diamondSpacing;
+
+      return {
+        left: screenX - squareSize / 2,
+        top: screenY - squareSize / 2,
+      };
+    },
+    [chessToDisplay, boardSize, squareSize]
+  );
+
+  // Use diamond positioning for current logic (backward compatibility)
+  const getScreenPosition = getDiamondScreenPosition;
 
   // Helper function to check if position is in array
   const isChessPositionInArray = (
@@ -473,7 +560,7 @@ export default function DiamondBoard({
         setDragOverPosition(closestSquare);
       }
     },
-    [touchState, allChessPositions, squareSize]
+    [touchState, allChessPositions, squareSize, getScreenPosition]
   );
 
   const handleTouchEnd = useCallback(
@@ -564,90 +651,148 @@ export default function DiamondBoard({
         overflow: 'visible', // Allow player cards to extend outside
         // Prevent mobile scroll interference
         touchAction: 'pan-x pan-y', // Allow scrolling but prevent other gestures
+        // Board container entrance animation
+        opacity: animationPhase === 'traditional' && !hasAnimated ? 0 : 1,
+        transform:
+          animationPhase === 'traditional' && !hasAnimated
+            ? 'scale(0.8) translateY(20px)'
+            : 'scale(1) translateY(0px)',
+        animation:
+          animationPhase === 'traditional' && !hasAnimated
+            ? 'boardEnter 0.6s ease-out 0.1s forwards'
+            : 'none',
+        '@keyframes boardEnter': {
+          from: {
+            opacity: 0,
+            transform: 'scale(0.8) translateY(20px)',
+          },
+          to: {
+            opacity: 1,
+            transform: 'scale(1) translateY(0px)',
+          },
+        },
       }}
     >
-      {/* Player Cards positioned relative to exact board dimensions */}
-      {/* Always render PlayerCards - let PlayerCard handle demo mode internally */}
-      <>
-        {/* Black Player - Top Left relative to board */}
-        <PlayerCard
-          player={player2 || null}
-          color="BLACK"
-          isMyTurn={blackPlayerTurn && !!isPlayer2}
-          isCurrentUser={!!isPlayer2}
-          position="top-left"
-          boardSize={boardSize}
-          winStatus={player2WinStatus}
-        />
-
-        {/* White Player - Bottom Right relative to board */}
-        <PlayerCard
-          player={player1 || null}
-          color="WHITE"
-          isMyTurn={whitePlayerTurn && !!isPlayer1}
-          isCurrentUser={!!isPlayer1}
-          position="bottom-right"
-          boardSize={boardSize}
-          winStatus={player1WinStatus}
-        />
-      </>
-
-      {/* Coordinate Labels */}
-      {/* Bottom-left edge: File letters (a-h) */}
-      {[0, 1, 2, 3, 4, 5, 6, 7].map(file => {
-        const rank = 0; // Bottom rank
-        const chessPos = { file, rank };
-        const screenPos = getScreenPosition(chessPos);
-        return (
+      {/* Player Cards - Only show after animation completes */}
+      {animationPhase === 'diamond' && (
+        <>
+          {/* Black Player - Top Left relative to board */}
           <Box
-            key={`file-${file}`}
             sx={{
-              position: 'absolute',
-              left: screenPos.left - squareSize / 4 + 8,
-              top: screenPos.top + squareSize - 8,
-              fontSize: '14px',
-              color: 'text.secondary',
-              fontWeight: 600,
-              userSelect: 'none',
-              textAlign: 'center',
-              transform: 'translate(-50%, 0)',
+              opacity: 0,
+              animation: 'fadeIn 0.8s ease-in-out 0.4s forwards',
+              '@keyframes fadeIn': {
+                from: { opacity: 0 },
+                to: { opacity: 1 },
+              },
             }}
           >
-            {String.fromCharCode(97 + file)}
+            <PlayerCard
+              player={player2 || null}
+              color="BLACK"
+              isMyTurn={blackPlayerTurn && !!isPlayer2}
+              isCurrentUser={!!isPlayer2}
+              position="top-left"
+              boardSize={boardSize}
+              winStatus={player2WinStatus}
+            />
           </Box>
-        );
-      })}
 
-      {/* Top-left edge: Rank numbers (1-8) */}
-      {[0, 1, 2, 3, 4, 5, 6, 7].map(rank => {
-        const file = 0; // Leftmost file
-        const chessPos = { file, rank };
-        const screenPos = getScreenPosition(chessPos);
-        return (
+          {/* White Player - Bottom Right relative to board */}
           <Box
-            key={`rank-${rank}`}
             sx={{
-              position: 'absolute',
-              left: screenPos.left + squareSize / 2 - 32,
-              top: screenPos.top - 4,
-              fontSize: '14px',
-              color: 'text.secondary',
-              fontWeight: 600,
-              userSelect: 'none',
-              textAlign: 'center',
-              transform: 'translate(-50%, -50%)',
+              opacity: 0,
+              animation: 'fadeIn 0.8s ease-in-out 0.5s forwards',
+              '@keyframes fadeIn': {
+                from: { opacity: 0 },
+                to: { opacity: 1 },
+              },
             }}
           >
-            {rank + 1}
+            <PlayerCard
+              player={player1 || null}
+              color="WHITE"
+              isMyTurn={whitePlayerTurn && !!isPlayer1}
+              isCurrentUser={!!isPlayer1}
+              position="bottom-right"
+              boardSize={boardSize}
+              winStatus={player1WinStatus}
+            />
           </Box>
-        );
-      })}
+        </>
+      )}
+
+      {/* Coordinate Labels - Only show after animation completes */}
+      {animationPhase === 'diamond' && (
+        <>
+          {/* Bottom-left edge: File letters (a-h) */}
+          {[0, 1, 2, 3, 4, 5, 6, 7].map(file => {
+            const rank = 0; // Bottom rank
+            const chessPos = { file, rank };
+            const screenPos = getScreenPosition(chessPos);
+            return (
+              <Box
+                key={`file-${file}`}
+                sx={{
+                  position: 'absolute',
+                  left: screenPos.left - squareSize / 4 + 8,
+                  top: screenPos.top + squareSize - 8,
+                  fontSize: '14px',
+                  color: 'text.secondary',
+                  fontWeight: 600,
+                  userSelect: 'none',
+                  textAlign: 'center',
+                  transform: 'translate(-50%, 0)',
+                  opacity: 0,
+                  animation: 'fadeIn 0.8s ease-in-out 0.3s forwards', // Fade in with delay
+                  '@keyframes fadeIn': {
+                    from: { opacity: 0 },
+                    to: { opacity: 1 },
+                  },
+                }}
+              >
+                {String.fromCharCode(97 + file)}
+              </Box>
+            );
+          })}
+
+          {/* Top-left edge: Rank numbers (1-8) */}
+          {[0, 1, 2, 3, 4, 5, 6, 7].map(rank => {
+            const file = 0; // Leftmost file
+            const chessPos = { file, rank };
+            const screenPos = getScreenPosition(chessPos);
+            return (
+              <Box
+                key={`rank-${rank}`}
+                sx={{
+                  position: 'absolute',
+                  left: screenPos.left + squareSize / 2 - 32,
+                  top: screenPos.top - 4,
+                  fontSize: '14px',
+                  color: 'text.secondary',
+                  fontWeight: 600,
+                  userSelect: 'none',
+                  textAlign: 'center',
+                  transform: 'translate(-50%, -50%)',
+                  opacity: 0,
+                  animation: 'fadeIn 0.8s ease-in-out 0.3s forwards', // Fade in with delay
+                  '@keyframes fadeIn': {
+                    from: { opacity: 0 },
+                    to: { opacity: 1 },
+                  },
+                }}
+              >
+                {rank + 1}
+              </Box>
+            );
+          })}
+        </>
+      )}
 
       {/* Render all squares */}
       {allChessPositions.map(chessPosition => {
-        const diamondPosition = chessToDisplay(chessPosition);
-        const screenPos = getScreenPosition(chessPosition);
-        const piece = boardState.get(chessCoords.positionToKey(chessPosition));
+        const traditionalPosition = getTraditionalScreenPosition(chessPosition);
+        const diamondPosition = getDiamondScreenPosition(chessPosition);
 
         const isSelected = selectedSquare
           ? selectedSquare.file === chessPosition.file &&
@@ -670,8 +815,7 @@ export default function DiamondBoard({
           <ChessSquare
             key={chessCoords.positionToKey(chessPosition)}
             chessPosition={chessPosition}
-            diamondPosition={diamondPosition}
-            piece={piece}
+            piece={boardState.get(chessCoords.positionToKey(chessPosition))}
             isLight={isLightSquare(chessPosition)}
             isSelected={isSelected}
             isValidMove={isValidMove}
@@ -686,8 +830,9 @@ export default function DiamondBoard({
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
             size={squareSize}
-            left={screenPos.left}
-            top={screenPos.top}
+            traditionalPosition={traditionalPosition}
+            diamondScreenPosition={diamondPosition}
+            animationPhase={animationPhase}
             readOnly={readOnly}
             currentTurn={currentTurn}
             isMobile={isMobile}
