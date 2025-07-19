@@ -19,6 +19,7 @@ import {
   joinMatch,
   makeMove as firestoreMakeMove,
 } from '@/lib/firestore-actions';
+import { chessAnalytics } from '@/lib/analytics';
 import type {
   Move,
   MatchWithPlayers,
@@ -372,6 +373,17 @@ export function useMatchSessionRealtime(matchId: string | null) {
         throw new Error(result.error);
       }
 
+      // Track successful move
+      if (result.success && result.gameState) {
+        const moveNumber = result.gameState.moveHistory?.length || 0;
+        chessAnalytics.trackPieceMoved(
+          move.piece.type,
+          `${move.from.file},${move.from.rank}`,
+          `${move.to.file},${move.to.rank}`,
+          moveNumber
+        );
+      }
+
       // No need to manually update state - Firestore listeners will handle it! 🔥
       setIsMakingMove(false);
       return result.gameState;
@@ -390,6 +402,11 @@ export function useMatchSessionRealtime(matchId: string | null) {
 
       if (!result.success) {
         throw new Error(result.error);
+      }
+
+      // Track successful match join
+      if (result.success && user?.id) {
+        chessAnalytics.trackMatchJoined(matchId, user.id);
       }
 
       // No need to manually update - listeners will handle it! 🔥

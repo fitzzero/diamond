@@ -15,6 +15,7 @@ import type { PieceColor } from '@/types/game';
 import { useBreakpoints } from '@/hooks/useBreakpoints';
 import { useAuth } from '@/hooks/useAuth';
 import { createMatch } from '@/lib/firestore-actions';
+import { chessAnalytics } from '@/lib/analytics';
 import React from 'react';
 
 interface PlayerCardProps {
@@ -144,6 +145,8 @@ export default function PlayerCard({
     try {
       const result = await createMatch();
       if (result.success && result.matchId) {
+        // Track successful match creation
+        chessAnalytics.trackMatchCreated(result.matchId);
         router.push(`/match/${result.matchId}`);
       }
     } catch (error) {

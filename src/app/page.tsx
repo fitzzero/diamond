@@ -5,7 +5,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUserMatchesRealtime } from '@/hooks/useFirestoreGame';
 import { MainLayout } from '@/components/layout';
 import { DemoGameBoard, CompactMatchCard } from '@/components/game';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { chessAnalytics, trackPageView } from '@/lib/analytics';
 
 export default function HomePage() {
   const { user, isAuthenticated } = useAuth();
@@ -22,6 +23,12 @@ export default function HomePage() {
 
   // Real-time hook already sorts matches (active first, then most recent)
   const sortedMatches = isAuthenticated ? userMatches : [];
+
+  // Track homepage visits
+  useEffect(() => {
+    trackPageView('homepage');
+    chessAnalytics.trackHomepageVisited(isAuthenticated);
+  }, [isAuthenticated]);
 
   return (
     <MainLayout>

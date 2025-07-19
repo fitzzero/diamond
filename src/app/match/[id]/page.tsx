@@ -35,6 +35,7 @@ import type {
 } from '@/types/game';
 import { diamondCoords, chessCoords } from '@/lib/game/coordinates';
 import { moveValidator } from '@/lib/game/moveValidation';
+import { chessAnalytics } from '@/lib/analytics';
 
 export default function MatchPage() {
   const params = useParams();
@@ -111,6 +112,8 @@ export default function MatchPage() {
   const handleShareMatch = () => {
     navigator.clipboard.writeText(window.location.href).then(() => {
       setNotification('Match link copied to clipboard!');
+      // Track match sharing
+      chessAnalytics.trackMatchShared(matchId, 'clipboard');
     });
   };
 

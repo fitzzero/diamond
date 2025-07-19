@@ -8,6 +8,7 @@ import {
   initializeFirestore,
 } from 'firebase/firestore';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
+import { getAnalytics, isSupported } from 'firebase/analytics';
 
 // Firebase config - get from Firebase Console
 const firebaseConfig = {
@@ -17,6 +18,7 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 // Initialize Firebase (only once)
@@ -35,6 +37,18 @@ const db =
 // Initialize Auth
 const auth = getAuth(app);
 
+// Initialize Analytics (only in browser)
+let analytics: any = null;
+if (typeof window !== 'undefined') {
+  // Only initialize in browser environment
+  isSupported().then(supported => {
+    if (supported) {
+      analytics = getAnalytics(app);
+      console.log('🔥 Firebase Analytics initialized');
+    }
+  });
+}
+
 // Development emulators (if needed)
 if (
   process.env.NODE_ENV === 'development' &&
@@ -48,7 +62,7 @@ if (
   // Note: Firestore emulator connection should be done carefully to avoid conflicts
 }
 
-export { db, auth };
+export { db, auth, analytics };
 export default app;
 
 // Helper to go offline/online (useful for testing)
