@@ -86,15 +86,15 @@ export default function PlayerCard({
 
   // Calculate position relative to board
   const getCardPosition = () => {
-    const xDistance = isMobile ? '100px' : '5%';
-    const yDistance = isMobile ? '100px' : '20%';
+    const xDistance = isMobile ? '90px' : '5%';
+    const yDistance = isMobile ? '90px' : '20%';
     return {
       position: 'absolute' as const,
       top: position === 'top-left' ? yDistance : undefined,
       left: position === 'top-left' ? xDistance : undefined,
       right: position === 'top-left' ? undefined : xDistance,
       bottom: position === 'top-left' ? undefined : yDistance,
-      width: isMobile ? 180 : 240,
+      width: isMobile ? 'auto' : 240,
     };
   };
 
@@ -217,7 +217,9 @@ export default function PlayerCard({
         </Stack>
       );
 
-      return (
+      return isMobile ? (
+        <Box sx={{ ...getCardPosition() }}>{whiteContent}</Box>
+      ) : (
         <Card
           sx={{
             ...getCardPosition(),
@@ -301,7 +303,9 @@ export default function PlayerCard({
       </Stack>
     );
 
-    return (
+    return isMobile ? (
+      <Box sx={{ ...getCardPosition() }}>{blackContent}</Box>
+    ) : (
       <Card
         sx={{
           ...getCardPosition(),

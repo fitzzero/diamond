@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { Box, useTheme } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { CHESS_ICONS } from '@/lib/fontawesome';
@@ -67,6 +67,9 @@ interface SquareProps {
   onDragEnd: () => void;
   onDragOver: (chessPos: ChessPosition) => void;
   onDrop: (chessPos: ChessPosition) => void;
+  onTouchStart?: (chessPos: ChessPosition) => void;
+  onTouchMove?: (chessPos: ChessPosition, touch: React.Touch) => void;
+  onTouchEnd?: (chessPos: ChessPosition) => void;
   size: number;
   left: number;
   top: number;
@@ -89,6 +92,9 @@ function ChessSquare({
   onDragEnd,
   onDragOver,
   onDrop,
+  onTouchStart,
+  onTouchMove,
+  onTouchEnd,
   size,
   left,
   top,
@@ -138,11 +144,36 @@ function ChessSquare({
     onDrop(chessPosition);
   };
 
+  // Touch event handlers for mobile
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!canDragPiece || !onTouchStart) return;
+    e.preventDefault(); // Prevent scrolling
+    onTouchStart(chessPosition);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!onTouchMove) return;
+    e.preventDefault(); // Prevent scrolling
+    const touch = e.touches[0];
+    if (touch) {
+      onTouchMove(chessPosition, touch);
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!onTouchEnd) return;
+    e.preventDefault(); // Prevent default behavior
+    onTouchEnd(chessPosition);
+  };
+
   return (
     <Box
       onClick={onClick}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       sx={{
         position: 'absolute',
         left: left,
@@ -158,6 +189,10 @@ function ChessSquare({
         transition: 'background-color 0.2s ease',
         transform: 'rotate(45deg)', // Diamond rotation
         transformOrigin: 'center',
+        // Improve mobile touch interaction
+        touchAction: piece && !readOnly ? 'none' : 'auto', // Prevent scrolling when dragging pieces
+        userSelect: 'none', // Prevent text selection
+        WebkitUserSelect: 'none', // Safari
         '&:hover': !readOnly
           ? {
               backgroundColor: theme.palette.action.hover,
@@ -167,28 +202,37 @@ function ChessSquare({
     >
       {piece && (
         <Box
-          draggable={canDragPiece}
+          draggable={canDragPiece && !isMobile} // Disable HTML5 drag on mobile
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           sx={{
             transform: 'rotate(-45deg)', // Counter-rotate the piece to appear upright
-            fontSize: isMobile ? '1.5rem' : '1.8rem',
+            fontSize: isMobile ? '1.6rem' : '1.8rem', // Slightly larger on mobile for better touch
             color: piece.color === 'WHITE' ? 'white' : 'black',
             textShadow:
               piece.color === 'WHITE'
                 ? '1px 1px 2px rgba(0,0,0,0.7)'
                 : '1px 1px 2px rgba(255,255,255,0.5)',
-            cursor: canDragPiece ? 'grab' : 'default',
+            cursor: canDragPiece ? (isMobile ? 'pointer' : 'grab') : 'default',
             userSelect: 'none',
+            WebkitUserSelect: 'none',
+            touchAction: 'none', // Prevent scrolling and other touch actions
             transition: 'transform 0.1s ease',
-            '&:hover': canDragPiece
-              ? {
-                  transform: 'rotate(-45deg) scale(1.1)',
-                }
-              : {},
+            // Larger touch target on mobile
+            minWidth: isMobile ? '44px' : 'auto', // iOS HIG recommends 44px minimum
+            minHeight: isMobile ? '44px' : 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            '&:hover':
+              canDragPiece && !isMobile
+                ? {
+                    transform: 'rotate(-45deg) scale(1.1)',
+                  }
+                : {},
             '&:active': canDragPiece
               ? {
-                  cursor: 'grabbing',
+                  cursor: isMobile ? 'pointer' : 'grabbing',
                   transform: 'rotate(-45deg) scale(0.95)',
                 }
               : {},
@@ -252,6 +296,14 @@ export default function DiamondBoard({
   const [localValidMoves, setLocalValidMoves] =
     useState<ChessPosition[]>(validMoves);
 
+  // Touch state management for mobile
+  const [touchState, setTouchState] = useState<{
+    piece: Piece;
+    from: ChessPosition;
+    startTime: number;
+  } | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+
   // Generate all valid chess positions for rendering
   const allChessPositions = useMemo(() => {
     const positions: ChessPosition[] = [];
@@ -264,9 +316,9 @@ export default function DiamondBoard({
   }, []);
 
   // Calculate board dimensions with better mobile sizing
-  const squareSize = isMobile ? 36 : 60; // Slightly larger for better touch targets
+  const squareSize = isMobile ? 42 : 60; // Larger mobile squares for better touch targets
   const boardSize = squareSize * 15; // Enough space for the diamond
-  const pieceSize = isMobile ? 28 : 36; // Optimized piece sizing
+  const pieceSize = isMobile ? 32 : 36; // Optimized piece sizing
 
   // Helper function to check if a square is light or dark
   const isLightSquare = (pos: ChessPosition): boolean => {
@@ -361,6 +413,105 @@ export default function DiamondBoard({
     [draggedPiece, onPieceMove, validMoves]
   );
 
+  // Touch event handlers for mobile
+  const handleTouchStart = useCallback(
+    (chessPos: ChessPosition) => {
+      const piece = boardState.get(chessCoords.positionToKey(chessPos));
+      if (piece && piece.color === currentTurn && !readOnly) {
+        setTouchState({ piece, from: chessPos, startTime: Date.now() });
+
+        // Calculate valid moves for this piece
+        try {
+          const allLegalMoves = moveValidator.getAllLegalMoves(
+            boardState,
+            currentTurn
+          );
+          const pieceMoves = allLegalMoves.filter(
+            (move: Move) =>
+              move.from.file === chessPos.file &&
+              move.from.rank === chessPos.rank
+          );
+          setLocalValidMoves(pieceMoves.map((move: Move) => move.to));
+        } catch (error) {
+          console.error('Error calculating touch moves:', error);
+          setLocalValidMoves([]);
+        }
+      }
+    },
+    [boardState, currentTurn, readOnly]
+  );
+
+  const handleTouchMove = useCallback(
+    (chessPos: ChessPosition, touch: React.Touch) => {
+      if (!touchState || !boardRef.current) return;
+
+      // Find the square under the touch point
+      const boardRect = boardRef.current.getBoundingClientRect();
+      const touchX = touch.clientX - boardRect.left;
+      const touchY = touch.clientY - boardRect.top;
+
+      // Find closest square to touch point
+      let closestSquare: ChessPosition | null = null;
+      let closestDistance = Infinity;
+
+      allChessPositions.forEach(pos => {
+        const screenPos = getScreenPosition(pos);
+        const squareCenterX = screenPos.left + squareSize / 2;
+        const squareCenterY = screenPos.top + squareSize / 2;
+        const distance = Math.sqrt(
+          Math.pow(touchX - squareCenterX, 2) +
+            Math.pow(touchY - squareCenterY, 2)
+        );
+
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestSquare = pos;
+        }
+      });
+
+      if (closestSquare && closestDistance < squareSize * 0.8) {
+        setDragOverPosition(closestSquare);
+      }
+    },
+    [touchState, allChessPositions, squareSize]
+  );
+
+  const handleTouchEnd = useCallback(
+    (chessPos: ChessPosition) => {
+      if (!touchState) return;
+
+      const touchDuration = Date.now() - touchState.startTime;
+
+      // If it's a quick tap (< 200ms), treat as click
+      if (touchDuration < 200) {
+        handleSquareClick(touchState.from);
+      } else if (dragOverPosition && onPieceMove) {
+        // If dragged to a different square, attempt move
+        const isValidMove = localValidMoves.some(
+          move =>
+            move.file === dragOverPosition.file &&
+            move.rank === dragOverPosition.rank
+        );
+        if (isValidMove) {
+          onPieceMove(touchState.from, dragOverPosition);
+        }
+      }
+
+      // Reset touch state
+      setTouchState(null);
+      setDragOverPosition(null);
+      setLocalValidMoves(validMoves);
+    },
+    [
+      touchState,
+      dragOverPosition,
+      onPieceMove,
+      localValidMoves,
+      validMoves,
+      handleSquareClick,
+    ]
+  );
+
   // Calculate player turn states
   const whitePlayerTurn = currentTurn === 'WHITE';
   const blackPlayerTurn = currentTurn === 'BLACK';
@@ -403,6 +554,7 @@ export default function DiamondBoard({
 
   return (
     <Box
+      ref={boardRef}
       sx={{
         position: 'relative',
         marginTop: isMobile ? '-80px' : `-${boardSize - 800}px`,
@@ -410,6 +562,8 @@ export default function DiamondBoard({
         width: `calc(${boardSize}px)`,
         height: boardSize,
         overflow: 'visible', // Allow player cards to extend outside
+        // Prevent mobile scroll interference
+        touchAction: 'pan-x pan-y', // Allow scrolling but prevent other gestures
       }}
     >
       {/* Player Cards positioned relative to exact board dimensions */}
@@ -528,6 +682,9 @@ export default function DiamondBoard({
             onDragEnd={handleDragEnd}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
             size={squareSize}
             left={screenPos.left}
             top={screenPos.top}
