@@ -182,7 +182,8 @@ export function useMatchSessionRealtime(matchId: string | null) {
   );
 
   useEffect(() => {
-    if (!user?.id || !matchId) {
+    // Allow fetching match data even without authentication (for spectating)
+    if (!matchId) {
       setMatch(null);
       setGame(null);
       setIsLoading(false);
@@ -303,44 +304,40 @@ export function useMatchSessionRealtime(matchId: string | null) {
         const gameDoc = snapshot.docs[0];
         const gameData = gameDoc.data();
 
-        // Check if user is part of this game
+        // Allow spectators to view game data (not just players)
         const isPlayer =
-          gameData.whitePlayerId === user.id ||
-          gameData.blackPlayerId === user.id;
+          user?.id &&
+          (gameData.whitePlayerId === user.id ||
+            gameData.blackPlayerId === user.id);
 
-        if (isPlayer) {
-          // Convert Firestore data to EnhancedGameState
-          const boardState = new Map();
-          if (gameData.boardState && typeof gameData.boardState === 'object') {
-            for (const [key, piece] of Object.entries(gameData.boardState)) {
-              if (piece) boardState.set(key, piece);
-            }
+        // Show game data to both players and spectators
+        const boardState = new Map();
+        if (gameData.boardState && typeof gameData.boardState === 'object') {
+          for (const [key, piece] of Object.entries(gameData.boardState)) {
+            if (piece) boardState.set(key, piece);
           }
-
-          const enhancedGame: EnhancedGameState = {
-            id: gameDoc.id,
-            gameNumber: gameData.gameNumber,
-            status: gameData.status,
-            currentTurn: gameData.currentTurn,
-            boardState,
-            moveHistory: Array.isArray(gameData.moveHistory)
-              ? gameData.moveHistory
-              : [],
-            whitePlayerId: gameData.whitePlayerId,
-            blackPlayerId: gameData.blackPlayerId,
-            startedAt: gameData.startedAt?.toDate() || new Date(),
-            completedAt: gameData.completedAt?.toDate() || null,
-            result: gameData.result,
-            match: match || ({} as any), // Will be filled by match listener
-            whitePlayer: {} as any, // Simplified for real-time
-            blackPlayer: {} as any, // Simplified for real-time
-          };
-
-          setGame(enhancedGame);
-        } else {
-          setGame(null);
         }
 
+        const enhancedGame: EnhancedGameState = {
+          id: gameDoc.id,
+          gameNumber: gameData.gameNumber,
+          status: gameData.status,
+          currentTurn: gameData.currentTurn,
+          boardState,
+          moveHistory: Array.isArray(gameData.moveHistory)
+            ? gameData.moveHistory
+            : [],
+          whitePlayerId: gameData.whitePlayerId,
+          blackPlayerId: gameData.blackPlayerId,
+          startedAt: gameData.startedAt?.toDate() || new Date(),
+          completedAt: gameData.completedAt?.toDate() || null,
+          result: gameData.result,
+          match: match || ({} as any), // Will be filled by match listener
+          whitePlayer: {} as any, // Simplified for real-time
+          blackPlayer: {} as any, // Simplified for real-time
+        };
+
+        setGame(enhancedGame);
         setIsLoading(false);
       },
       error => {
@@ -358,7 +355,7 @@ export function useMatchSessionRealtime(matchId: string | null) {
       unsubscribeMatch();
       unsubscribeGame();
     };
-  }, [user?.id, matchId]); // Remove 'match' from dependencies to prevent infinite loop
+  }, [matchId]); // Remove user?.id from dependencies to allow unauthenticated access
 
   // Enhanced make move with real-time optimistic updates
   const makeGameMove = async (move: Move) => {

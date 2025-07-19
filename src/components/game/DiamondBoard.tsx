@@ -52,6 +52,7 @@ interface DiamondBoardProps {
     result?: string | null;
     whitePlayerId: string;
     blackPlayerId: string;
+    moveHistory?: any[]; // Add moveHistory to support last move detection
   };
   // Animation control
   skipAnimation?: boolean;
@@ -65,6 +66,7 @@ interface SquareProps {
   isValidMove: boolean;
   isHighlighted: boolean;
   isDragOver: boolean;
+  isLastMovedPiece: boolean;
   onClick: () => void;
   onDragStart: (chessPos: ChessPosition) => void;
   onDragEnd: () => void;
@@ -90,6 +92,7 @@ function ChessSquare({
   isValidMove,
   isHighlighted,
   isDragOver,
+  isLastMovedPiece,
   onClick,
   onDragStart,
   onDragEnd,
@@ -113,6 +116,10 @@ function ChessSquare({
     if (isDragOver && isValidMove) return theme.palette.success.main;
     if (isValidMove) return theme.palette.success.light;
     if (isHighlighted) return theme.palette.info.light;
+    if (isLastMovedPiece && piece) {
+      // Subtle yellow highlight for the last moved piece
+      return isLight ? theme.palette.warning.light : theme.palette.warning.main;
+    }
     return isLight ? theme.palette.primary.main : theme.palette.primary.dark;
   };
 
@@ -235,8 +242,12 @@ function ChessSquare({
             color: piece.color === 'WHITE' ? 'white' : 'black',
             textShadow:
               piece.color === 'WHITE'
-                ? '1px 1px 2px rgba(0,0,0,0.7)'
-                : '1px 1px 2px rgba(255,255,255,0.5)',
+                ? isLastMovedPiece
+                  ? '1px 1px 2px rgba(0,0,0,0.7), 0 0 4px rgba(255,255,255,0.2)'
+                  : '1px 1px 2px rgba(0,0,0,0.7)'
+                : isLastMovedPiece
+                  ? '1px 1px 2px rgba(255,255,255,0.5), 0 0 4px rgba(0,0,0,0.1)'
+                  : '1px 1px 2px rgba(255,255,255,0.5)',
             cursor:
               canDragPiece && !isAnimating
                 ? isMobile
@@ -351,6 +362,11 @@ export default function DiamondBoard({
   } | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
 
+  // Recently moved piece highlighting
+  const [lastMovedPiece, setLastMovedPiece] = useState<ChessPosition | null>(
+    null
+  );
+
   // Animation trigger logic
   useEffect(() => {
     if (!hasAnimated && !skipAnimation && animationPhase === 'traditional') {
@@ -367,6 +383,35 @@ export default function DiamondBoard({
       return () => clearTimeout(timer);
     }
   }, [hasAnimated, skipAnimation, animationPhase]);
+
+  // Extract last move from game state (works for both your moves and opponent moves)
+  const lastMoveFromGame = useMemo(() => {
+    // Try to get from game.moveHistory if it exists
+    if (game && game.moveHistory && game.moveHistory.length > 0) {
+      return game.moveHistory[game.moveHistory.length - 1];
+    }
+
+    // Try other possible properties that might contain move data
+    if (game && (game as any).moves && (game as any).moves.length > 0) {
+      return (game as any).moves[(game as any).moves.length - 1];
+    }
+
+    // Fallback to highlightedSquares prop for other contexts
+    if (highlightedSquares.length >= 2) {
+      return {
+        from: highlightedSquares[0],
+        to: highlightedSquares[1],
+      };
+    }
+    return null;
+  }, [game, highlightedSquares]);
+
+  // Update last moved piece highlighting
+  useEffect(() => {
+    if (lastMoveFromGame) {
+      setLastMovedPiece(lastMoveFromGame.to);
+    }
+  }, [lastMoveFromGame]);
 
   // Generate all valid chess positions for rendering
   const allChessPositions = useMemo(() => {
@@ -690,7 +735,7 @@ export default function DiamondBoard({
             <PlayerCard
               player={player2 || null}
               color="BLACK"
-              isMyTurn={blackPlayerTurn && !!isPlayer2}
+              isMyTurn={blackPlayerTurn}
               isCurrentUser={!!isPlayer2}
               position="top-left"
               boardSize={boardSize}
@@ -712,7 +757,7 @@ export default function DiamondBoard({
             <PlayerCard
               player={player1 || null}
               color="WHITE"
-              isMyTurn={whitePlayerTurn && !!isPlayer1}
+              isMyTurn={whitePlayerTurn}
               isCurrentUser={!!isPlayer1}
               position="bottom-right"
               boardSize={boardSize}
@@ -810,6 +855,10 @@ export default function DiamondBoard({
           ? dragOverPosition.file === chessPosition.file &&
             dragOverPosition.rank === chessPosition.rank
           : false;
+        const isLastMovedPiece = lastMovedPiece
+          ? lastMovedPiece.file === chessPosition.file &&
+            lastMovedPiece.rank === chessPosition.rank
+          : false;
 
         return (
           <ChessSquare
@@ -821,6 +870,7 @@ export default function DiamondBoard({
             isValidMove={isValidMove}
             isHighlighted={isHighlighted}
             isDragOver={isDragOver}
+            isLastMovedPiece={isLastMovedPiece}
             onClick={() => handleSquareClick(chessPosition)}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}

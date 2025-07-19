@@ -8,20 +8,20 @@ service cloud.firestore {
     
     // Matches - users can read all matches, write if they're a participant
     match /matches/{matchId} {
-      allow read: if true; // Anyone can read match data
+      allow read: if true; // Anyone can read match data (for spectating)
       allow create: if request.auth != null; // Authenticated users can create matches
       allow update: if request.auth != null && 
         (request.auth.uid == resource.data.player1Id || 
          request.auth.uid == resource.data.player2Id); // Only participants can update
-    }
-    
-    // Games - similar to matches
-    match /games/{gameId} {
-      allow read: if true; // Anyone can read game data
-      allow create: if request.auth != null; // Authenticated users can create games
-      allow update: if request.auth != null && 
-        (request.auth.uid == resource.data.whitePlayerId || 
-         request.auth.uid == resource.data.blackPlayerId); // Only players can update
+      
+      // Games subcollection - nested under matches
+      match /games/{gameId} {
+        allow read: if true; // Anyone can read game data (for spectating)
+        allow create: if request.auth != null; // Authenticated users can create games
+        allow update: if request.auth != null && 
+          (request.auth.uid == resource.data.whitePlayerId || 
+           request.auth.uid == resource.data.blackPlayerId); // Only players can update
+      }
     }
     
     // DEVELOPMENT RULES - Allow all access for testing

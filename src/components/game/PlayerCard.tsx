@@ -388,7 +388,7 @@ export default function PlayerCard({
           >
             {winStatus
               ? color // Just show color when game is complete
-              : `${color} • ${isMyTurn ? 'Your Turn!' : 'Waiting...'}`}
+              : `${color} • ${isMyTurn ? (isCurrentUser ? 'Your Turn!' : 'Turn') : 'Waiting...'}`}
           </Typography>
         </Stack>
       </Box>
