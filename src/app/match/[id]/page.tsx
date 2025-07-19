@@ -96,6 +96,13 @@ export default function MatchPage() {
 
   const handleJoinMatch = async () => {
     if (joinLoading) return;
+
+    // Redirect to login if not authenticated
+    if (!isAuthenticated) {
+      router.push('/api/auth/signin');
+      return;
+    }
+
     setJoinLoading(true);
     try {
       await joinMatch();
@@ -118,7 +125,7 @@ export default function MatchPage() {
   };
 
   const handlePieceMove = async (from: ChessPosition, to: ChessPosition) => {
-    if (moveLoading || !game || !isParticipant) return;
+    if (moveLoading || !game || !isParticipant || !isAuthenticated) return;
 
     const isMyTurn =
       (game.currentTurn === 'WHITE' && isPlayer1) ||
@@ -160,6 +167,7 @@ export default function MatchPage() {
 
   const handleSquareClick = (position: ChessPosition) => {
     if (
+      !isAuthenticated ||
       !game ||
       !match ||
       !isParticipant ||
@@ -246,16 +254,7 @@ export default function MatchPage() {
     }
   };
 
-  // Auth check
-  if (!isAuthenticated) {
-    return (
-      <MainLayout>
-        <Alert severity="warning">
-          You must be signed in to view this match.
-        </Alert>
-      </MainLayout>
-    );
-  }
+  // Remove auth check - allow anyone to view matches
 
   // Loading state
   if (isMatchLoading) {
@@ -286,6 +285,7 @@ export default function MatchPage() {
   }
 
   const canJoin = match.status === 'WAITING_FOR_PLAYER' && !isParticipant;
+  const canJoinAuthenticated = canJoin && isAuthenticated;
   const isMyTurn = currentIsMyTurn; // Use the value calculated earlier
 
   return (
@@ -355,6 +355,15 @@ export default function MatchPage() {
               <Typography variant="h6" gutterBottom>
                 This match is waiting for a second player.
               </Typography>
+              {!isAuthenticated && (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 2 }}
+                >
+                  Sign in to join this match and start playing!
+                </Typography>
+              )}
               <Button
                 variant="contained"
                 startIcon={<PlayArrow />}
@@ -362,7 +371,11 @@ export default function MatchPage() {
                 disabled={joinLoading}
                 size="large"
               >
-                {joinLoading ? 'Joining...' : 'Join Match'}
+                {joinLoading
+                  ? 'Joining...'
+                  : isAuthenticated
+                    ? 'Join Match'
+                    : 'Sign In to Join'}
               </Button>
             </CardContent>
           </Card>
@@ -372,6 +385,20 @@ export default function MatchPage() {
           <Alert severity="info">
             Waiting for another player to join. Share the match link to invite
             someone!
+          </Alert>
+        )}
+
+        {!isAuthenticated && match.status === 'IN_PROGRESS' && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            You're viewing this match as a spectator.
+            <Button
+              variant="text"
+              sx={{ p: 0, minWidth: 'auto', textTransform: 'none' }}
+              onClick={() => router.push('/api/auth/signin')}
+            >
+              Sign in
+            </Button>{' '}
+            to create your own matches and play Diamond Chess!
           </Alert>
         )}
 
@@ -386,6 +413,7 @@ export default function MatchPage() {
               selectedSquare={selectedSquare}
               validMoves={validMoves}
               readOnly={
+                !isAuthenticated ||
                 !isParticipant ||
                 match.status !== 'IN_PROGRESS' ||
                 !isMyTurn ||
