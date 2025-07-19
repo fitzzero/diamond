@@ -44,7 +44,7 @@ export default function MainLayout({
   title,
   showBackground = true,
 }: MainLayoutProps) {
-  const { user, isAuthenticated, signOut } = useAuth();
+  const { user, isAuthenticated, signIn, signOut } = useAuth();
   const router = useRouter();
   const { isMobile } = useBreakpoints();
   const theme = useTheme();
@@ -66,6 +66,10 @@ export default function MainLayout({
     handleUserMenuClose();
     await signOut();
     router.push('/');
+  };
+
+  const handleSignIn = async () => {
+    await signIn('discord');
   };
 
   const handleProfileClick = () => {
@@ -248,7 +252,7 @@ export default function MainLayout({
               <Button
                 variant="contained"
                 startIcon={<Person />}
-                onClick={() => router.push('/')}
+                onClick={handleSignIn}
                 sx={{
                   background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
                   color: theme.palette.background.default,

@@ -24,7 +24,7 @@ import {
   Refresh,
 } from '@mui/icons-material';
 import { useAuth } from '@/hooks/useAuth';
-import { useMatchSession } from '@/hooks/useGame';
+import { useMatchSessionRealtime } from '@/hooks/useFirestoreGame';
 import { MainLayout } from '@/components/layout';
 import { DiamondBoard, MoveHistory } from '@/components/game';
 import type {
@@ -43,7 +43,7 @@ export default function MatchPage() {
   const matchId = params.id as string;
 
   const {
-    match,
+    match: rawMatch,
     game,
     isMatchLoading,
     isGameLoading,
@@ -54,7 +54,10 @@ export default function MatchPage() {
     refresh, // Single refresh function now
     realtimeStatus,
     isGameStarting,
-  } = useMatchSession(matchId);
+  } = useMatchSessionRealtime(matchId);
+
+  // Cast to expected type (Firestore data structure is compatible)
+  const match = rawMatch as any;
 
   const [selectedSquare, setSelectedSquare] = useState<ChessPosition | null>(
     null

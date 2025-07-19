@@ -5,6 +5,7 @@ import { Box, useTheme } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { CHESS_ICONS } from '@/lib/fontawesome';
 import { useBreakpoints } from '@/hooks';
+import { usePathname } from 'next/navigation';
 import type {
   BoardState,
   ChessPosition,
@@ -223,6 +224,7 @@ export default function DiamondBoard({
   game,
 }: DiamondBoardProps) {
   const { isMobile } = useBreakpoints();
+  const pathname = usePathname();
 
   // Coordinate conversion helpers
   const chessToDisplay = useCallback(
@@ -403,40 +405,38 @@ export default function DiamondBoard({
     <Box
       sx={{
         position: 'relative',
-        marginLeft: `calc(-1 * (${boardSize}px + 32px - ${isMobile ? '100vw' : '850px'}) / 2)`,
         marginTop: isMobile ? '-80px' : `-${boardSize - 800}px`,
-        marginBottom: isMobile ? '-80px' : `-${boardSize - 800}px`,
+        marginBottom: isMobile ? '-40px' : `-${boardSize - 800}px`,
         width: `calc(${boardSize}px)`,
         height: boardSize,
         overflow: 'visible', // Allow player cards to extend outside
       }}
     >
       {/* Player Cards positioned relative to exact board dimensions */}
-      {(matchStatus === 'IN_PROGRESS' || matchStatus === 'COMPLETED') && (
-        <>
-          {/* Black Player - Top Left relative to board */}
-          <PlayerCard
-            player={player2 || null}
-            color="BLACK"
-            isMyTurn={blackPlayerTurn && !!isPlayer2}
-            isCurrentUser={!!isPlayer2}
-            position="top-left"
-            boardSize={boardSize}
-            winStatus={player2WinStatus}
-          />
+      {/* Always render PlayerCards - let PlayerCard handle demo mode internally */}
+      <>
+        {/* Black Player - Top Left relative to board */}
+        <PlayerCard
+          player={player2 || null}
+          color="BLACK"
+          isMyTurn={blackPlayerTurn && !!isPlayer2}
+          isCurrentUser={!!isPlayer2}
+          position="top-left"
+          boardSize={boardSize}
+          winStatus={player2WinStatus}
+        />
 
-          {/* White Player - Bottom Right relative to board */}
-          <PlayerCard
-            player={player1 || null}
-            color="WHITE"
-            isMyTurn={whitePlayerTurn && !!isPlayer1}
-            isCurrentUser={!!isPlayer1}
-            position="bottom-right"
-            boardSize={boardSize}
-            winStatus={player1WinStatus}
-          />
-        </>
-      )}
+        {/* White Player - Bottom Right relative to board */}
+        <PlayerCard
+          player={player1 || null}
+          color="WHITE"
+          isMyTurn={whitePlayerTurn && !!isPlayer1}
+          isCurrentUser={!!isPlayer1}
+          position="bottom-right"
+          boardSize={boardSize}
+          winStatus={player1WinStatus}
+        />
+      </>
 
       {/* Coordinate Labels */}
       {/* Bottom-left edge: File letters (a-h) */}

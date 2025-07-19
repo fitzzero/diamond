@@ -36,7 +36,7 @@ import {
   Visibility,
 } from '@mui/icons-material';
 import { useAuth } from '@/hooks/useAuth';
-import { useUserMatches } from '@/hooks/useGame';
+import { useUserMatchesRealtime } from '@/hooks/useFirestoreGame';
 import { MainLayout } from '@/components/layout';
 import Link from 'next/link';
 
@@ -69,7 +69,8 @@ export default function UserProfilePage() {
   const userId = params.id as string;
 
   const [activeTab, setActiveTab] = useState(0);
-  const { matches: userMatches, isLoading: matchesLoading } = useUserMatches();
+  const { matches: userMatches, isLoading: matchesLoading } =
+    useUserMatchesRealtime();
 
   const isOwnProfile = currentUser?.id === userId;
 

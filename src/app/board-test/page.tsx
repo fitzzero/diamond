@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { Container, Typography, Button, Stack, Box } from '@mui/material';
 import { MainLayout } from '@/components/layout';
 import { DiamondBoard } from '@/components/game';
-import { BoardSetup } from '@/lib/game/boardSetup';
+import { boardSetup } from '@/lib/game/boardSetup';
 import type { DiamondPosition, PieceColor } from '@/types/game';
 
 export default function BoardTestPage() {
@@ -15,8 +15,7 @@ export default function BoardTestPage() {
 
   // Create initial board state
   const boardState = useMemo(() => {
-    const setup = new BoardSetup();
-    return setup.createInitialBoard();
+    return boardSetup.createInitialBoard();
   }, []);
 
   const handleSquareClick = (position: DiamondPosition) => {
@@ -34,7 +33,6 @@ export default function BoardTestPage() {
 
   // Analyze board layout for debugging
   const boardAnalysis = useMemo(() => {
-    const setup = new BoardSetup();
     const pieces = Array.from(boardState.entries()).map(([key, piece]) => {
       const [x, y] = key.split(',').map(Number);
       return { position: { x, y }, piece, key };
@@ -89,8 +87,8 @@ export default function BoardTestPage() {
           <DiamondBoard
             boardState={boardState}
             currentTurn={currentTurn}
-            onSquareClick={handleSquareClick}
-            selectedSquare={selectedSquare}
+            onSquareClick={handleSquareClick as any}
+            selectedSquare={selectedSquare as any}
             validMoves={[]} // No move validation for this test
             highlightedSquares={[]}
             readOnly={false}

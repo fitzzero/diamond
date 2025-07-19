@@ -5,15 +5,28 @@
 # Never commit .env to version control - only commit this example file
 
 # =============================================================================
-# DATABASE
+# FIREBASE / FIRESTORE (replacing Prisma)
 # =============================================================================
-# Your Prisma Postgres database URL with Accelerate
-# Get this from: https://console.prisma.io/
-# Format: prisma+postgres://accelerate.prisma-data.net/?api_key=YOUR_API_KEY
-DATABASE_URL="prisma+postgres://accelerate.prisma-data.net/?api_key=YOUR_PRISMA_API_KEY_HERE"
+# Get these from Firebase Console > Project Settings > General > Your apps
+NEXT_PUBLIC_FIREBASE_API_KEY="your-api-key-here"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-project-id"
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="your-project.appspot.com"
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="123456789012"
+NEXT_PUBLIC_FIREBASE_APP_ID="1:123456789012:web:abcdef1234567890"
 
-# Optional: Direct database URL (only needed for migrations if you have connection issues)
-# DIRECT_DATABASE_URL="postgresql://username:password@host:port/database"
+# Firebase Admin SDK Service Account Key (for server-side operations)
+# Download from Firebase Console > Project Settings > Service Accounts > Generate new private key
+# Then paste the entire JSON content as a string (use cat your-key.json | jq -c .)
+FIREBASE_SERVICE_ACCOUNT_KEY='{"type":"service_account","project_id":"your-project","private_key_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n","client_email":"...","client_id":"...","auth_uri":"...","token_uri":"...","auth_provider_x509_cert_url":"...","client_x509_cert_url":"...","universe_domain":"googleapis.com"}'
+
+# Optional: Use Firebase emulators in development
+# NEXT_PUBLIC_USE_FIREBASE_EMULATOR="true"
+
+# =============================================================================
+# LEGACY DATABASE (will be removed)
+# =============================================================================
+# DATABASE_URL="prisma+postgres://accelerate.prisma-data.net/?api_key=YOUR_PRISMA_API_KEY_HERE"
 
 # =============================================================================
 # NEXTAUTH.JS AUTHENTICATION

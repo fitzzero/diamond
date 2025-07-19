@@ -18,7 +18,7 @@ A unique chess variant played on a 45° rotated diamond board with modified pawn
 ### Prerequisites
 
 - Node.js 18+
-- PostgreSQL database
+- Firebase project with Firestore enabled
 - Discord OAuth app (for authentication)
 
 ### Installation
@@ -43,12 +43,17 @@ A unique chess variant played on a 45° rotated diamond board with modified pawn
    # Edit .env.local with your database and Discord OAuth credentials
    ```
 
-4. **Set up the database**
+4. **Set up Firebase**
 
    ```bash
-   yarn prisma generate
-   yarn prisma db push
-   yarn prisma db seed
+   # Install Firebase CLI (if not already installed)
+   npm install -g firebase-tools
+
+   # Login to Firebase
+   firebase login
+
+   # Deploy Firestore rules and indexes
+   firebase deploy --only firestore
    ```
 
 5. **Start the development server**
@@ -96,8 +101,8 @@ A unique chess variant played on a 45° rotated diamond board with modified pawn
 - **Frontend**: Next.js 14 (App Router), React 18, TypeScript
 - **UI**: Material-UI v5 with custom chess theme
 - **Authentication**: NextAuth.js v5 with Discord OAuth
-- **Database**: PostgreSQL with Prisma ORM
-- **Real-time**: SWR polling with optimistic updates
+- **Database**: Google Cloud Firestore (NoSQL)
+- **Real-time**: Firestore onSnapshot listeners with optimistic updates
 - **Deployment**: Vercel (recommended)
 
 ### Key Design Decisions
@@ -108,11 +113,12 @@ A unique chess variant played on a 45° rotated diamond board with modified pawn
 - UI applies 45° transformation for diamond visual display
 - This keeps chess rules simple while allowing unique presentation
 
-**Server-First Architecture:**
+**Real-time Architecture:**
 
 - All game validation happens server-side via Next.js Server Actions
-- Client uses SWR for real-time state synchronization
+- Client uses Firestore onSnapshot listeners for instant real-time updates
 - Optimistic updates provide smooth UX
+- No polling required - true real-time multiplayer experience
 
 ## 📁 Project Structure
 
@@ -126,15 +132,17 @@ src/
 │   ├── PlayerCard.tsx     # Player info & status
 │   └── MoveHistory.tsx    # Move tracking
 ├── lib/
-│   ├── actions/           # Server Actions
-│   │   └── gameActions.ts # Match & game operations
+│   ├── firestore-actions.ts # Server Actions for Firestore
+│   ├── firebase.ts        # Firebase client config
+│   ├── firebase-admin.ts  # Firebase admin SDK
+│   ├── user-sync.ts       # User data synchronization
 │   └── game/              # Core game logic
 │       ├── coordinates.ts # Coordinate transformations
 │       ├── pieceMovement.ts # Piece movement rules
 │       ├── moveValidation.ts # Move & game validation
 │       └── boardSetup.ts  # Initial board state
 ├── hooks/                 # React hooks
-│   └── useGame.ts         # SWR game state hooks
+│   └── useFirestoreGame.ts # Real-time Firestore hooks
 └── types/game.ts          # TypeScript definitions
 ```
 
@@ -152,8 +160,9 @@ Visit `/test-diamond` for development testing:
 
 1. **`src/lib/game/coordinates.ts`** - Coordinate system and transformations
 2. **`src/lib/game/pieceMovement.ts`** - All piece movement rules
-3. **`src/lib/actions/gameActions.ts`** - Server-side game operations
-4. **`src/components/game/DiamondBoard.tsx`** - Main UI component
+3. **`src/lib/firestore-actions.ts`** - Server-side Firestore operations
+4. **`src/hooks/useFirestoreGame.ts`** - Real-time hooks with onSnapshot listeners
+5. **`src/components/game/DiamondBoard.tsx`** - Main UI component
 
 ### Development Commands
 
@@ -161,10 +170,9 @@ Visit `/test-diamond` for development testing:
 # Start development server
 yarn dev
 
-# Database operations
-yarn prisma generate     # Generate Prisma client
-yarn prisma db push      # Push schema changes
-yarn prisma studio       # Open database GUI
+# Firebase operations
+firebase deploy --only firestore  # Deploy Firestore rules/indexes
+firebase emulators:start          # Start local Firebase emulators
 
 # Build for production
 yarn build
@@ -178,7 +186,8 @@ yarn start
 1. **Piece Movement**: Edit `src/lib/game/pieceMovement.ts`
 2. **Board Setup**: Modify `src/lib/game/boardSetup.ts`
 3. **Validation**: Update `src/lib/game/moveValidation.ts`
-4. **Test Changes**: Use `/test-diamond` page
+4. **Server Actions**: Update `src/lib/firestore-actions.ts` for game operations
+5. **Test Changes**: Use `/test-diamond` page
 
 ### UI Customization
 
@@ -203,8 +212,16 @@ yarn start
 ### Environment Variables
 
 ```bash
-# Database
-DATABASE_URL=postgresql://...
+# Firebase Configuration
+NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789012
+NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789012:web:abcdef1234567890
+
+# Firebase Admin SDK (for server-side operations)
+FIREBASE_SERVICE_ACCOUNT_KEY='{"type":"service_account",...}'
 
 # NextAuth.js
 NEXTAUTH_SECRET=your-secret-key

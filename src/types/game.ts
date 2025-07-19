@@ -99,19 +99,64 @@ export interface CoordinateConverter {
   chessToLegacyDiamond: (pos: ChessPosition) => DiamondPosition;
 }
 
-// === PRISMA-ALIGNED TYPES FOR SERVER ACTIONS ===
+// === FIRESTORE-ALIGNED TYPES FOR SERVER ACTIONS ===
 
-import type {
-  User,
-  Match as PrismaMatch,
-  Game as PrismaGame,
-  MatchStatus as PrismaMatchStatus,
-  GameStatus as PrismaGameStatus,
-  PieceColor as PrismaPieceColor,
-  GameResult as PrismaGameResult,
-} from '@/generated/prisma';
+// Define types for Firestore compatibility
+export type PrismaMatchStatus =
+  | 'WAITING_FOR_PLAYER'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELLED';
+export type PrismaGameStatus =
+  | 'IN_PROGRESS'
+  | 'CHECKMATE'
+  | 'STALEMATE'
+  | 'DRAW'
+  | 'RESIGNATION'
+  | 'TIMEOUT';
+export type PrismaPieceColor = 'WHITE' | 'BLACK';
+export type PrismaGameResult = 'WHITE_WINS' | 'BLACK_WINS' | 'DRAW';
 
-// Enhanced Match type with related data (User type automatically excludes PII via Prisma omit)
+// User type (PII-omitted for Firestore)
+export interface User {
+  id: string;
+  name: string | null;
+  email: string | null; // Always null due to PII omission
+  emailVerified: Date | null; // Always null due to PII omission
+  image: string | null;
+  discordId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Base Match type
+export interface PrismaMatch {
+  id: string;
+  status: PrismaMatchStatus;
+  player1Id: string;
+  player2Id: string | null;
+  winnerId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Base Game type
+export interface PrismaGame {
+  id: string;
+  matchId: string;
+  gameNumber: number;
+  status: PrismaGameStatus;
+  currentTurn: PrismaPieceColor;
+  board: string; // JSON string of board state
+  moveHistory: string; // JSON string of move history
+  whitePlayerId: string;
+  blackPlayerId: string;
+  startedAt: Date;
+  completedAt: Date | null;
+  result: PrismaGameResult | null;
+}
+
+// Enhanced Match type with related data
 export interface MatchWithPlayers extends PrismaMatch {
   player1: User;
   player2: User | null;

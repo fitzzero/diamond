@@ -1,5 +1,6 @@
 import NextAuth from 'next-auth';
 import Discord from 'next-auth/providers/discord';
+import { syncUserToFirestore, getFirestoreUser } from '@/lib/user-sync';
 import '@/types/auth';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -10,7 +11,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   pages: {
-    signIn: '/auth/signin',
     error: '/auth/error',
   },
   session: {
@@ -21,22 +21,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // On first sign in, user data is available
       if (user && account?.provider === 'discord') {
         try {
-          const { prisma } = await import('@/lib/prisma');
+          // Create a simple user ID from Discord ID for Firestore
+          const userId = `discord_${account.providerAccountId}`;
 
-          // Get the user from database using Discord ID
-          const dbUser = await prisma.user.findUnique({
-            where: { discordId: account.providerAccountId },
-          });
+          // Try to get user from Firestore
+          const dbUser = await getFirestoreUser(userId);
 
           if (dbUser) {
             token.id = dbUser.id;
             token.name = dbUser.name;
             token.discordId = dbUser.discordId;
           } else {
-            console.error(
-              '🚨 JWT: User not found in database for Discord ID:',
-              account.providerAccountId
-            );
+            // User will be created during signIn callback
+            token.id = userId;
+            token.name = (profile as any)?.username || user.name;
+            token.discordId = account.providerAccountId;
           }
         } catch (error) {
           console.error('JWT callback error:', error);
@@ -56,7 +55,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
     async signIn({ user, account, profile }) {
-      // Store user in database on first sign in
+      // Store user in Firestore on first sign in
       if (account?.provider === 'discord') {
         try {
           console.log('🔐 SignIn callback - Discord OAuth');
@@ -70,37 +69,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             providerAccountId: account.providerAccountId,
           });
 
-          const { prisma } = await import('@/lib/prisma');
+          // Create consistent user ID for Firestore
+          const userId = `discord_${account.providerAccountId}`;
 
-          // Check if user already exists
-          const existingUser = await prisma.user.findUnique({
-            where: { discordId: account.providerAccountId },
+          // Sync user to Firestore (creates or updates)
+          const syncResult = await syncUserToFirestore({
+            id: userId,
+            name: (profile as any)?.username || user.name || 'Unknown',
+            email: null, // PII omitted
+            image: user.image,
+            discordId: account.providerAccountId,
           });
 
-          if (!existingUser) {
-            console.log('➕ Creating new user');
-            // Create new user (email omitted due to PII protection)
-            const newUser = await prisma.user.create({
-              data: {
-                discordId: account.providerAccountId,
-                name: (profile as any)?.username || 'Unknown',
-                image: user.image,
-              },
-            });
-            console.log('✅ New user created:', newUser.id);
-            // Don't mutate user object directly - NextAuth will handle ID mapping
+          if (syncResult.success) {
+            console.log('✅ User synced to Firestore:', userId);
           } else {
-            console.log('🔄 Updating existing user:', existingUser.id);
-            // Update existing user data (email omitted due to PII protection)
-            const updatedUser = await prisma.user.update({
-              where: { id: existingUser.id },
-              data: {
-                name: (profile as any)?.username || existingUser.name,
-                image: user.image || existingUser.image,
-              },
-            });
-            console.log('✅ User updated');
-            // Don't mutate user object directly - NextAuth will handle ID mapping
+            console.error(
+              '❌ Failed to sync user to Firestore:',
+              syncResult.error
+            );
+            return false;
           }
 
           console.log('🎉 SignIn callback completed successfully');
@@ -127,7 +115,6 @@ export const authConfig = {
     }),
   ],
   pages: {
-    signIn: '/auth/signin',
     error: '/auth/error',
   },
   session: {

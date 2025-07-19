@@ -7,9 +7,15 @@ import {
   Avatar,
   Box,
   Typography,
+  Button,
 } from '@mui/material';
+import { Add, Login, Person } from '@mui/icons-material';
+import { usePathname, useRouter } from 'next/navigation';
 import type { PieceColor } from '@/types/game';
 import { useBreakpoints } from '@/hooks/useBreakpoints';
+import { useAuth } from '@/hooks/useAuth';
+import { createMatch } from '@/lib/firestore-actions';
+import React from 'react';
 
 interface PlayerCardProps {
   player: {
@@ -22,7 +28,7 @@ interface PlayerCardProps {
   isCurrentUser: boolean;
   position: 'top-left' | 'bottom-right';
   boardSize: number;
-  winStatus?: 'winner' | 'loser' | null; // Add win/loss status
+  winStatus?: 'winner' | 'loser' | null;
 }
 
 export default function PlayerCard({
@@ -35,6 +41,12 @@ export default function PlayerCard({
   winStatus,
 }: PlayerCardProps) {
   const { isMobile } = useBreakpoints();
+  const { user, isAuthenticated, signIn } = useAuth();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  // Detect if we're in a match route
+  const isInMatchRoute = pathname?.startsWith('/match/');
 
   // Add global CSS for winner pulse animation
   const injectPulseStyles = () => {
@@ -49,14 +61,13 @@ export default function PlayerCard({
           }
           
           @keyframes winner-pulse {
-            0% {
-              box-shadow: 0 0 15px rgba(46, 125, 50, 0.5) !important;
+            0%, 100% {
+              transform: scale(1);
+              box-shadow: 0 4px 20px rgba(76, 175, 80, 0.3);
             }
             50% {
-              box-shadow: 0 0 25px rgba(46, 125, 50, 0.9) !important;
-            }
-            100% {
-              box-shadow: 0 0 15px rgba(46, 125, 50, 0.5) !important;
+              transform: scale(1.02);
+              box-shadow: 0 6px 25px rgba(76, 175, 80, 0.5);
             }
           }
         `;
@@ -65,84 +76,260 @@ export default function PlayerCard({
     }
   };
 
-  // Inject styles on mount
-  if (winStatus === 'winner') {
-    injectPulseStyles();
-  }
+  // Inject pulse styles when component mounts
+  React.useEffect(() => {
+    if (winStatus === 'winner') {
+      injectPulseStyles();
+    }
+  }, [winStatus]);
 
-  const xDistance = isMobile ? '100px' : '10%';
-  const yDistance = isMobile ? '100px' : '20%';
-  const positioning: any = {
-    position: 'absolute',
-    top: position === 'top-left' ? yDistance : undefined,
-    left: position === 'top-left' ? xDistance : undefined,
-    right: position === 'top-left' ? undefined : xDistance,
-    bottom: position === 'top-left' ? undefined : yDistance,
+  // Calculate position relative to board
+  const getCardPosition = () => {
+    const xDistance = isMobile ? '100px' : '5%';
+    const yDistance = isMobile ? '100px' : '20%';
+    return {
+      position: 'absolute' as const,
+      top: position === 'top-left' ? yDistance : undefined,
+      left: position === 'top-left' ? xDistance : undefined,
+      right: position === 'top-left' ? undefined : xDistance,
+      bottom: position === 'top-left' ? undefined : yDistance,
+      width: isMobile ? 180 : 240,
+    };
   };
 
-  // Determine styling based on win status
-  const getWinStatusStyling = () => {
+  const getWinnerStyles = () => {
     if (winStatus === 'winner') {
       return {
-        bgcolor: 'background.paper', // Keep default background
-        color: 'text.primary', // Keep default text color
+        border: '3px solid',
         borderColor: 'success.main',
-        boxShadow: '0 0 20px rgba(46, 125, 50, 0.7)',
-        '&:hover': {
-          boxShadow: '0 0 25px rgba(46, 125, 50, 0.9)',
-        },
+        background:
+          'linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(56, 142, 60, 0.05) 100%)',
       };
-    } else if (winStatus === 'loser') {
+    }
+    if (winStatus === 'loser') {
       return {
-        bgcolor: 'background.paper', // Keep default background
-        color: 'text.primary', // Keep default text color
-        borderColor: 'error.main',
-        boxShadow: '0 0 15px rgba(211, 47, 47, 0.6)',
+        border: '2px solid',
+        borderColor: 'error.light',
+        opacity: 0.8,
       };
-    } else if (isMyTurn) {
+    }
+    return {};
+  };
+
+  const getTurnStyles = () => {
+    if (winStatus) return {}; // Don't show turn styles if game is over
+
+    if (isMyTurn) {
       return {
-        bgcolor: 'primary.main',
-        color: 'primary.contrastText',
-        borderColor: 'primary.main',
-        boxShadow: 4,
+        border: '2px solid',
+        borderColor: 'warning.main',
+        background:
+          'linear-gradient(135deg, rgba(255, 193, 7, 0.1) 0%, rgba(255, 160, 0, 0.05) 100%)',
+        boxShadow: '0 4px 20px rgba(255, 193, 7, 0.2)',
       };
+    }
+    return {};
+  };
+
+  // Handle actions for demo mode
+  const handleWhitePlayerAction = () => {
+    if (isAuthenticated && user) {
+      router.push(`/user/${user.id}`);
     } else {
-      return {
-        bgcolor: 'background.paper',
-        color: 'text.primary',
-        borderColor: 'divider',
-        boxShadow: 1,
-      };
+      signIn('discord');
     }
   };
 
-  const cardStyling = getWinStatusStyling();
+  const handleBlackPlayerAction = async () => {
+    try {
+      const result = await createMatch();
+      if (result.success && result.matchId) {
+        router.push(`/match/${result.matchId}`);
+      }
+    } catch (error) {
+      console.error('Error creating match:', error);
+    }
+  };
 
-  if (!player) {
+  // Demo mode: Not in match route
+  if (!isInMatchRoute) {
+    // White player (bottom-right): Current user or sign in CTA
+    if (color === 'WHITE') {
+      const whiteContent = (
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Avatar
+            src={isAuthenticated && user ? user.image || undefined : undefined}
+            sx={{
+              width: isMobile ? 64 : 36,
+              height: isMobile ? 64 : 36,
+              bgcolor: 'grey.100',
+              color: 'grey.800',
+            }}
+          >
+            {isAuthenticated && user ? user.name?.charAt(0) || '?' : <Login />}
+          </Avatar>
+          <Box
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              display: {
+                xs: 'none',
+                md: 'block',
+              },
+            }}
+          >
+            <Typography
+              variant="body2"
+              noWrap
+              sx={{
+                fontWeight: 600,
+                fontSize: '0.875rem',
+              }}
+            >
+              {isAuthenticated && user ? user.name || 'You' : 'Sign In to Play'}
+            </Typography>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Box
+                sx={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                  bgcolor: 'grey.100',
+                  border: '1px solid grey.400',
+                }}
+              />
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 400,
+                  fontSize: '0.75rem',
+                }}
+              >
+                {isAuthenticated && user
+                  ? 'WHITE • Click for profile'
+                  : 'WHITE • Join with Discord'}
+              </Typography>
+            </Stack>
+          </Box>
+        </Stack>
+      );
+
+      return (
+        <Card
+          sx={{
+            ...getCardPosition(),
+            bgcolor: 'background.paper',
+            backdropFilter: 'blur(8px)',
+            transition: 'all 0.3s ease',
+            cursor: 'pointer',
+            '&:hover': {
+              transform: 'scale(1.02)',
+              boxShadow: 4,
+            },
+          }}
+          onClick={handleWhitePlayerAction}
+        >
+          <CardContent
+            sx={{
+              p: isMobile ? 2 : 1.5,
+              '&:last-child': { pb: isMobile ? 2 : 1.5 },
+            }}
+          >
+            {whiteContent}
+          </CardContent>
+        </Card>
+      );
+    }
+
+    // Black player (top-left): Create match CTA
+    const blackContent = (
+      <Stack direction="row" spacing={1} alignItems="center">
+        <Avatar
+          sx={{
+            width: isMobile ? 64 : 36,
+            height: isMobile ? 64 : 36,
+            bgcolor: 'grey.800',
+            color: 'grey.100',
+          }}
+        >
+          <Add />
+        </Avatar>
+        <Box
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            display: {
+              xs: 'none',
+              md: 'block',
+            },
+          }}
+        >
+          <Typography
+            variant="body2"
+            noWrap
+            sx={{
+              fontWeight: 600,
+              fontSize: '0.875rem',
+            }}
+          >
+            Create Match
+          </Typography>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Box
+              sx={{
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                bgcolor: 'grey.800',
+                border: '1px solid grey.600',
+              }}
+            />
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 400,
+                fontSize: '0.75rem',
+              }}
+            >
+              BLACK • Play vs opponent
+            </Typography>
+          </Stack>
+        </Box>
+      </Stack>
+    );
+
     return (
       <Card
         sx={{
-          ...positioning,
-          minWidth: 180,
+          ...getCardPosition(),
           bgcolor: 'background.paper',
-          border: '2px solid',
-          borderColor: 'divider',
-          zIndex: 10,
+          backdropFilter: 'blur(8px)',
+          transition: 'all 0.3s ease',
+          cursor: 'pointer',
+          '&:hover': {
+            transform: 'scale(1.02)',
+            boxShadow: 4,
+          },
         }}
+        onClick={handleBlackPlayerAction}
       >
-        <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-          <Typography variant="body2" color="text.secondary">
-            Waiting for player...
-          </Typography>
+        <CardContent
+          sx={{
+            p: isMobile ? 2 : 1.5,
+            '&:last-child': { pb: isMobile ? 2 : 1.5 },
+          }}
+        >
+          {blackContent}
         </CardContent>
       </Card>
     );
   }
 
-  const content = (
+  // Regular match mode: Show actual player info
+  const matchContent = (
     <Stack direction="row" spacing={1} alignItems="center">
       <Avatar
-        src={player.image || undefined}
+        src={player?.image || undefined}
         sx={{
           width: isMobile ? 64 : 36,
           height: isMobile ? 64 : 36,
@@ -150,7 +337,7 @@ export default function PlayerCard({
           color: color === 'WHITE' ? 'grey.800' : 'grey.100',
         }}
       >
-        {player.name?.charAt(0) || '?'}
+        {player?.name?.charAt(0) || '?'}
       </Avatar>
       <Box
         sx={{
@@ -171,7 +358,7 @@ export default function PlayerCard({
             fontSize: '0.875rem',
           }}
         >
-          {player.name || 'Anonymous'}
+          {player?.name || 'Anonymous'}
         </Typography>
         <Stack direction="row" spacing={1} alignItems="center">
           <Box
@@ -201,26 +388,32 @@ export default function PlayerCard({
     </Stack>
   );
 
-  return isMobile ? (
-    <Box
-      sx={{
-        ...positioning,
-      }}
-    >
-      {content}
-    </Box>
-  ) : (
+  return (
     <Card
       className={winStatus === 'winner' ? 'winner-pulse' : ''}
       sx={{
-        ...positioning,
-        ...cardStyling,
+        ...getCardPosition(),
+        ...getWinnerStyles(),
+        ...getTurnStyles(),
+        bgcolor: 'background.paper',
+        backdropFilter: 'blur(8px)',
         transition: 'all 0.3s ease',
-        zIndex: 10,
+        '&:hover':
+          isMyTurn && !winStatus
+            ? {
+                transform: 'scale(1.02)',
+                boxShadow: '0 6px 25px rgba(255, 193, 7, 0.3)',
+              }
+            : {},
       }}
     >
-      <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-        {content}
+      <CardContent
+        sx={{
+          p: isMobile ? 2 : 1.5,
+          '&:last-child': { pb: isMobile ? 2 : 1.5 },
+        }}
+      >
+        {matchContent}
       </CardContent>
     </Card>
   );
